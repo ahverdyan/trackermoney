@@ -1,0 +1,69 @@
+# ─── Gradle ───
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+# ─── Локальные настройки Gradle ───
+local.properties
+
+# ─── Android Studio / IntelliJ ───
+.idea/
+*.iml
+*.ipr
+*.iws
+out/
+.idea/caches/
+.idea/libraries/
+.idea/modules.xml
+.idea/workspace.xml
+.idea/tasks.xml
+.idea/navEditor.xml
+.idea/assetWizardSettings.xml
+.idea/deploymentTargetSelector.xml
+
+# ─── Кэши Android Studio ───
+.cxx/
+.externalNativeBuild/
+.cxx/
+captures/
+
+# ─── Kotlin ───
+.kotlin/
+
+# ─── Android ───
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
+bin/
+gen/
+release/
+*.hprof
+
+# ─── Логи и временные файлы ───
+*.log
+*.tmp
+*.swp
+*~
+
+# ─── OS ───
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ─── Keystore / секреты ───
+*.jks
+*.keystore
+keystore.properties
+secrets.properties
+.env
+
+# ─── Google Services (если используете Firebase) ───
+google-services.json
+
+# ─── Compose / KSP / Hilt (генерируемое) ───
+build/generated/
+**/generated/
