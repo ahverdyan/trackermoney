@@ -1,4 +1,3 @@
-
 package com.example.trackermoney
 
 import android.os.Bundle
@@ -8,47 +7,67 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.PieChart
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.trackermoney.model.Expense
 import com.example.trackermoney.ui.AddExpenseScreen
 import com.example.trackermoney.ui.HomeScreen
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Home
-import androidx.compose.material.icons.outlined.PieChart
-import androidx.compose.material.icons.outlined.History
-import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.ui.graphics.vector.ImageVector
+import com.example.trackermoney.ui.HistoryScreen
+import com.example.trackermoney.ui.LoginScreen
+import com.example.trackermoney.ui.RegisterScreen
+import com.example.trackermoney.ui.SettingsScreen
 import com.example.trackermoney.ui.SplashScreen
 
 private val Accent = Color(0xFF6275ED)
 private val Muted = Color(0xFF737887)
 
 class MainActivity : ComponentActivity() {
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         setContent {
-            MaterialTheme {
-                var currentScreen by remember {
-                    mutableStateOf("splash")
-                }
+            var currentScreen by remember {
+                mutableStateOf("splash")
+            }
 
-                var expenses by remember {
-                    mutableStateOf(emptyList<Expense>())
-                }
+            var expenses by remember {
+                mutableStateOf(emptyList<Expense>())
+            }
 
+            var isDarkTheme by remember {
+                mutableStateOf(false)
+            }
+
+            MaterialTheme(
+                colorScheme = if (isDarkTheme) {
+                    darkColorScheme()
+                } else {
+                    lightColorScheme()
+                }
+            ) {
                 Scaffold(
-                    containerColor = Color(0xFFF7F8FC),
+                    containerColor = MaterialTheme.colorScheme.background,
                     bottomBar = {
-                        if (currentScreen != "add" && currentScreen != "splash") {
+                        if (
+                            currentScreen == "home" ||
+                            currentScreen == "analytics" ||
+                            currentScreen == "history" ||
+                            currentScreen == "profile"
+                        ) {
                             BottomNavigation(
                                 currentScreen = currentScreen,
                                 onNavigate = { currentScreen = it },
@@ -63,8 +82,29 @@ class MainActivity : ComponentActivity() {
                             .padding(padding)
                     ) {
                         when (currentScreen) {
+
                             "splash" -> SplashScreen(
-                                onFinished = { currentScreen = "home" }
+                                onFinished = {
+                                    currentScreen = "login"
+                                }
+                            )
+
+                            "login" -> LoginScreen(
+                                onLoginSuccess = {
+                                    currentScreen = "home"
+                                },
+                                onNavigateToRegister = {
+                                    currentScreen = "register"
+                                }
+                            )
+
+                            "register" -> RegisterScreen(
+                                onRegistered = {
+                                    currentScreen = "login"
+                                },
+                                onNavigateToLogin = {
+                                    currentScreen = "login"
+                                }
                             )
 
                             "home" -> HomeScreen(
@@ -78,7 +118,11 @@ class MainActivity : ComponentActivity() {
                                 onBack = {
                                     currentScreen = "home"
                                 },
-                                onSave = { amount, category, title, dateMillis ->
+                                onSave = {
+                                        amount,
+                                        category,
+                                        title,
+                                        dateMillis ->
                                     expenses = expenses + Expense(
                                         amount = amount,
                                         category = category,
@@ -89,12 +133,23 @@ class MainActivity : ComponentActivity() {
                                 }
                             )
 
-                            else -> PlaceholderScreen(
-                                title = when (currentScreen) {
-                                    "analytics" -> "Аналитика"
-                                    "history" -> "История"
-                                    else -> "Профиль"
+                            "history" -> HistoryScreen(
+                                expenses = expenses
+                            )
+
+                            "profile" -> SettingsScreen(
+                                isDarkTheme = isDarkTheme,
+                                onThemeChange = {
+                                    isDarkTheme = it
+                                },
+                                onLogout = {
+                                    expenses = emptyList()
+                                    currentScreen = "login"
                                 }
+                            )
+
+                            else -> PlaceholderScreen(
+                                title = "Аналитика"
                             )
                         }
                     }
@@ -111,7 +166,7 @@ private fun BottomNavigation(
     onAdd: () -> Unit
 ) {
     Surface(
-        color = Color.White,
+        color = MaterialTheme.colorScheme.surface,
         shadowElevation = 12.dp
     ) {
         Row(
@@ -162,14 +217,13 @@ private fun BottomNavigation(
 
             NavigationItem(
                 icon = Icons.Outlined.Person,
-                label = "Профиль",
+                label = "Настройки",
                 selected = currentScreen == "profile",
                 onClick = { onNavigate("profile") }
             )
         }
     }
 }
-
 
 @Composable
 private fun NavigationItem(
@@ -178,7 +232,11 @@ private fun NavigationItem(
     selected: Boolean,
     onClick: () -> Unit
 ) {
-    val color = if (selected) Accent else Muted
+    val color = if (selected) {
+        Accent
+    } else {
+        Muted
+    }
 
     Column(
         modifier = Modifier
@@ -215,18 +273,22 @@ private fun PlaceholderScreen(title: String) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF7F8FC)),
+            .background(MaterialTheme.colorScheme.background),
         contentAlignment = Alignment.Center
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
             Text(
-                title,
+                text = title,
                 style = MaterialTheme.typography.headlineMedium
             )
+
             Spacer(Modifier.height(8.dp))
+
             Text(
-                "Этот раздел добавим позже",
-                color = Muted
+                text = "Этот раздел добавим позже",
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }

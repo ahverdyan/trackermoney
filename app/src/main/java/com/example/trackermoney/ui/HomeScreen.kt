@@ -2,17 +2,13 @@ package com.example.trackermoney.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -23,7 +19,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.trackermoney.model.Expense
 import java.util.Locale
-import androidx.compose.foundation.clickable
 
 private val expenseCategories = listOf(
     "Продукты", "Транспорт", "Покупки",
@@ -56,6 +51,7 @@ fun HomeScreen(
     onAddExpense: () -> Unit
 ) {
     val total = expenses.sumOf { it.amount }
+    val colors = MaterialTheme.colorScheme
 
     val grouped = expenses
         .groupBy { it.category }
@@ -68,7 +64,7 @@ fun HomeScreen(
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF8F9FC)),
+            .background(colors.background),
         contentPadding = PaddingValues(
             start = 20.dp,
             end = 20.dp,
@@ -76,47 +72,37 @@ fun HomeScreen(
             bottom = 24.dp
         )
     ) {
-        // заголовок
         item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    "Трекер расходов",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF171923)
-                )
-//                Box(
-//                    modifier = Modifier
-//                        .size(44.dp)
-//                        .background(Color.White, CircleShape),
-//                    contentAlignment = Alignment.Center
-//                ) {
-//                    Text("👤", fontSize = 20.sp)
-//                }
-            }
+            Text(
+                text = "Трекер расходов",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                color = colors.onBackground
+            )
         }
 
-        // период
         item {
             Spacer(Modifier.height(16.dp))
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color(0xFFEDEFF5), RoundedCornerShape(16.dp))
+                    .background(
+                        colors.surfaceVariant,
+                        RoundedCornerShape(16.dp)
+                    )
                     .padding(4.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
                 listOf("День", "Неделя", "Месяц", "Год").forEach { period ->
                     val selected = period == selectedPeriod
+
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .background(
-                                if (selected) Color.White else Color.Transparent,
+                                if (selected) colors.surface
+                                else Color.Transparent,
                                 RoundedCornerShape(12.dp)
                             )
                             .clickable { selectedPeriod = period }
@@ -124,9 +110,17 @@ fun HomeScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            period,
-                            color = if (selected) Color(0xFF171923) else Color(0xFF737887),
-                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                            text = period,
+                            color = if (selected) {
+                                colors.onSurface
+                            } else {
+                                colors.onSurfaceVariant
+                            },
+                            fontWeight = if (selected) {
+                                FontWeight.SemiBold
+                            } else {
+                                FontWeight.Normal
+                            },
                             fontSize = 14.sp
                         )
                     }
@@ -134,9 +128,9 @@ fun HomeScreen(
             }
         }
 
-        // диаграмма
         item {
             Spacer(Modifier.height(28.dp))
+
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -146,8 +140,11 @@ fun HomeScreen(
                 if (total > 0) {
                     Canvas(Modifier.size(240.dp)) {
                         var startAngle = -90f
+
                         grouped.forEach { entry ->
-                            val sweep = (entry.value / total * 360.0).toFloat()
+                            val sweep =
+                                (entry.value / total * 360.0).toFloat()
+
                             drawArc(
                                 color = expenseColor(entry.key),
                                 startAngle = startAngle,
@@ -158,13 +155,14 @@ fun HomeScreen(
                                     cap = StrokeCap.Butt
                                 )
                             )
+
                             startAngle += sweep
                         }
                     }
                 } else {
                     Canvas(Modifier.size(240.dp)) {
                         drawArc(
-                            color = Color(0xFFE9EBF3),
+                            color = colors.outlineVariant,
                             startAngle = 0f,
                             sweepAngle = 360f,
                             useCenter = false,
@@ -173,41 +171,47 @@ fun HomeScreen(
                     }
                 }
 
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
                     Text(
-                        "Всего потрачено",
-                        color = Color(0xFF737887),
+                        text = "Всего потрачено",
+                        color = colors.onSurfaceVariant,
                         fontSize = 14.sp
                     )
+
                     Spacer(Modifier.height(4.dp))
+
                     Text(
-                        formatMoney(total),
+                        text = formatMoney(total),
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF171923)
+                        color = colors.onSurface
                     )
                 }
             }
         }
 
-        // расход по категориям
         item {
             Spacer(Modifier.height(25.dp))
+
             Text(
-                "Топ категорий",
+                text = "Топ категорий",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF171923)
+                color = colors.onBackground
             )
+
             Spacer(Modifier.height(12.dp))
         }
 
-        // плитка с категориями
         if (grouped.isEmpty()) {
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    colors = CardDefaults.cardColors(
+                        containerColor = colors.surface
+                    ),
                     shape = RoundedCornerShape(20.dp)
                 ) {
                     Column(
@@ -217,12 +221,19 @@ fun HomeScreen(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text("🧾", fontSize = 32.sp)
+
                         Spacer(Modifier.height(8.dp))
-                        Text("Пока нет расходов")
-                        Spacer(Modifier.height(8.dp))
+
                         Text(
-                            "Нажми «+», чтобы добавить первую покупку",
-                            color = Color(0xFF737887)
+                            text = "Пока нет расходов",
+                            color = colors.onSurface
+                        )
+
+                        Spacer(Modifier.height(8.dp))
+
+                        Text(
+                            text = "Нажми «+», чтобы добавить первую покупку",
+                            color = colors.onSurfaceVariant
                         )
                     }
                 }
@@ -231,7 +242,7 @@ fun HomeScreen(
             items(grouped) { entry ->
                 val category = entry.key
                 val amount = entry.value
-                val percent = if (total > 0) (amount / total) else 0.0
+                val percent = if (total > 0) amount / total else 0.0
                 val color = expenseColor(category)
 
                 Column(
@@ -239,15 +250,20 @@ fun HomeScreen(
                         .fillMaxWidth()
                         .padding(bottom = 18.dp)
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         Box(
                             modifier = Modifier
                                 .size(48.dp)
-                                .background(color.copy(alpha = 0.15f), RoundedCornerShape(14.dp)),
+                                .background(
+                                    color.copy(alpha = 0.15f),
+                                    RoundedCornerShape(14.dp)
+                                ),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                category.take(1),
+                                text = category.take(1),
                                 color = color,
                                 fontSize = 22.sp,
                                 fontWeight = FontWeight.Bold
@@ -256,25 +272,28 @@ fun HomeScreen(
 
                         Spacer(Modifier.width(12.dp))
 
-                        Column(modifier = Modifier.weight(1f)) {
+                        Column(
+                            modifier = Modifier.weight(1f)
+                        ) {
                             Text(
-                                category,
+                                text = category,
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = 16.sp,
-                                color = Color(0xFF171923)
+                                color = colors.onSurface
                             )
+
                             Text(
-                                "${(percent * 100).toInt()}%",
-                                color = Color(0xFF737887),
+                                text = "${(percent * 100).toInt()}%",
+                                color = colors.onSurfaceVariant,
                                 fontSize = 13.sp
                             )
                         }
 
                         Text(
-                            formatMoney(amount),
+                            text = formatMoney(amount),
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 16.sp,
-                            color = Color(0xFF171923)
+                            color = colors.onSurface
                         )
                     }
 
@@ -284,13 +303,21 @@ fun HomeScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(6.dp)
-                            .background(Color(0xFFEDEFF5), RoundedCornerShape(3.dp))
+                            .background(
+                                colors.surfaceVariant,
+                                RoundedCornerShape(3.dp)
+                            )
                     ) {
                         Box(
                             modifier = Modifier
-                                .fillMaxWidth(percent.toFloat().coerceIn(0f, 1f))
+                                .fillMaxWidth(
+                                    percent.toFloat().coerceIn(0f, 1f)
+                                )
                                 .height(6.dp)
-                                .background(color, RoundedCornerShape(3.dp))
+                                .background(
+                                    color,
+                                    RoundedCornerShape(3.dp)
+                                )
                         )
                     }
                 }
