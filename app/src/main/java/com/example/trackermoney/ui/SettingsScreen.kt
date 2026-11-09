@@ -17,10 +17,12 @@ import androidx.compose.ui.unit.sp
 fun SettingsScreen(
     isDarkTheme: Boolean,
     onThemeChange: (Boolean) -> Unit,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    onResetProgress: () -> Unit
 ) {
     var showAbout by remember { mutableStateOf(false) }
     var showLogoutConfirmation by remember { mutableStateOf(false) }
+    var showResetConfirmation by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -144,6 +146,23 @@ fun SettingsScreen(
 
         Card(
             modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(18.dp)
+        ) {
+            Text(
+                "Сбросить прогресс",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showResetConfirmation = true }
+                    .padding(16.dp),
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+
+        Spacer(Modifier.height(12.dp))
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(18.dp),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.errorContainer
@@ -211,6 +230,22 @@ fun SettingsScreen(
                 ) {
                     Text("Отмена")
                 }
+            }
+        )
+    }
+
+    if (showResetConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showResetConfirmation = false },
+            title = { Text("Сбросить прогресс?") },
+            text = { Text("Все расходы будут удалены, а аккаунт выйдет из приложения. Регистрационные данные останутся на устройстве.") },
+            confirmButton = {
+                TextButton(onClick = { showResetConfirmation = false; onResetProgress() }) {
+                    Text("Сбросить", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showResetConfirmation = false }) { Text("Отмена") }
             }
         )
     }

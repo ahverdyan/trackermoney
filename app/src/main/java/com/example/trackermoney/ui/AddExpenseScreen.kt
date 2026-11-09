@@ -20,11 +20,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import java.time.Instant
-import java.time.LocalDate
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
 import java.util.Locale
+import com.example.trackermoney.model.Expense
 
 private data class ExpenseCategory(
     val name: String,
@@ -40,39 +40,37 @@ private val addCategories = listOf(
     ExpenseCategory("Жильё", "🏠", Color(0xFFEF4444)),
     ExpenseCategory("Здоровье", "💊", Color(0xFF06B6D4)),
     ExpenseCategory("Подписки", "📱", Color(0xFFEC4899)),
-    ExpenseCategory("Другое", "✦", Color(0xFF64748B))
+    ExpenseCategory("Топливо", "⛽", Color(0xFF64748B)),
+    ExpenseCategory("Красота", "💅", Color(0xFFEC4899)),
+    ExpenseCategory("Путешествия", "✈️", Color(0xFF3B82F6)),
+    ExpenseCategory("Образование", "📚", Color(0xFF8B5CF6))
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddExpenseScreen(
     onBack: () -> Unit,
-    onSave: (Double, String, String, Long) -> Unit
+    onSave: (Double, String, String, Long) -> Unit,
+    expenseToEdit: Expense? = null
 ) {
-    var amount by remember { mutableStateOf("") }
-    var title by remember { mutableStateOf("") }
-    var selectedCategory by remember { mutableStateOf("Продукты") }
+    var amount by remember(expenseToEdit?.id) { mutableStateOf(expenseToEdit?.amount?.toString() ?: "") }
+    var title by remember(expenseToEdit?.id) { mutableStateOf(expenseToEdit?.note ?: "") }
+    var selectedCategory by remember(expenseToEdit?.id) { mutableStateOf(expenseToEdit?.category ?: "Продукты") }
 
     // состояние даты
-    var selectedDate by remember { mutableStateOf(LocalDate.now()) }
+    var selectedDateMillis by remember(expenseToEdit?.id) { mutableLongStateOf(expenseToEdit?.date ?: System.currentTimeMillis()) }
     var showDatePicker by remember { mutableStateOf(false) }
 
     val parsedAmount = amount
         .replace(',', '.')
         .toDoubleOrNull()
 
-    val dateFormatter = DateTimeFormatter.ofPattern(
-        "d MMMM yyyy",
-        Locale("ru", "RU")
-    )
+    val dateFormatter = remember { SimpleDateFormat("d MMMM yyyy", Locale("ru", "RU")) }
 
     // диалог календаря
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = selectedDate
-                .atStartOfDay(ZoneId.systemDefault())
-                .toInstant()
-                .toEpochMilli()
+            initialSelectedDateMillis = selectedDateMillis
         )
 
         DatePickerDialog(
@@ -81,9 +79,7 @@ fun AddExpenseScreen(
                 TextButton(
                     onClick = {
                         datePickerState.selectedDateMillis?.let { millis ->
-                            selectedDate = Instant.ofEpochMilli(millis)
-                                .atZone(ZoneId.systemDefault())
-                                .toLocalDate()
+                            selectedDateMillis = millis
                         }
                         showDatePicker = false
                     }
@@ -122,7 +118,7 @@ fun AddExpenseScreen(
                     .padding(end = 22.dp)
             )
             Text(
-                "Добавить расход",
+                if (expenseToEdit == null) "Добавить расход" else "Изменить расход",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold
             )
@@ -232,7 +228,7 @@ fun AddExpenseScreen(
                         Text("📅", fontSize = 22.sp)
                         Spacer(Modifier.width(14.dp))
                         Text(
-                            selectedDate.format(dateFormatter)
+                            dateFormatter.format(Date(selectedDateMillis))
                                 .replaceFirstChar { it.uppercase() },
                             modifier = Modifier.weight(1f),
                             fontWeight = FontWeight.Medium
@@ -316,15 +312,19 @@ fun AddExpenseScreen(
         Button(
             onClick = {
                 if (parsedAmount != null && parsedAmount > 0) {
-                    val dateMillis = selectedDate
-                        .atStartOfDay(ZoneId.systemDefault())
-                        .toInstant()
-                        .toEpochMilli()
+                    val dateCalendar = Calendar.getInstance().apply {
+                        timeInMillis = selectedDateMillis
+                        val currentTime = Calendar.getInstance()
+                        set(Calendar.HOUR_OF_DAY, currentTime.get(Calendar.HOUR_OF_DAY))
+                        set(Calendar.MINUTE, currentTime.get(Calendar.MINUTE))
+                        set(Calendar.SECOND, currentTime.get(Calendar.SECOND))
+                        set(Calendar.MILLISECOND, currentTime.get(Calendar.MILLISECOND))
+                    }
                     onSave(
                         parsedAmount,
                         selectedCategory,
                         title.trim(),
-                        dateMillis               // ← 4-й аргумент
+                        dateCalendar.timeInMillis
                     )
                 }
             },
@@ -339,7 +339,7 @@ fun AddExpenseScreen(
             )
         ) {
             Text(
-                "Сохранить",
+                if (expenseToEdit == null) "Сохранить" else "Сохранить изменения",
                 fontSize = 18.sp,
                 fontWeight = FontWeight.SemiBold
             )

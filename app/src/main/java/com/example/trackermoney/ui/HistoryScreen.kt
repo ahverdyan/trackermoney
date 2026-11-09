@@ -1,12 +1,18 @@
 package com.example.trackermoney.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -20,9 +26,16 @@ import java.util.Locale
 
 private val HistoryAccent = Color(0xFF6275ED)
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun HistoryScreen(expenses: List<Expense>) {
-    val sortedExpenses = expenses.sortedByDescending { it.date }
+fun HistoryScreen(
+    expenses: List<Expense>,
+    onEdit: (Expense) -> Unit,
+    onDelete: (Expense) -> Unit
+) {
+    val sortedExpenses = expenses.sortedWith(
+        compareByDescending<Expense> { it.date }.thenByDescending { it.id }
+    )
 
     Column(
         modifier = Modifier
@@ -84,8 +97,12 @@ fun HistoryScreen(expenses: List<Expense>) {
                 contentPadding = PaddingValues(bottom = 20.dp)
             ) {
                 items(sortedExpenses) { expense ->
+                    var showActions by remember(expense.id) { mutableStateOf(false) }
                     Card(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().combinedClickable(
+                            onClick = { showActions = true },
+                            onLongClick = { showActions = true }
+                        ),
                         shape = RoundedCornerShape(18.dp),
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.surface
@@ -107,7 +124,7 @@ fun HistoryScreen(expenses: List<Expense>) {
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
-                                    text = expense.category.take(1),
+                                    text = categoryIcon(expense.category),
                                     color = HistoryAccent,
                                     fontSize = 21.sp,
                                     fontWeight = FontWeight.Bold
@@ -136,11 +153,20 @@ fun HistoryScreen(expenses: List<Expense>) {
                                     fontSize = 13.sp
                                 )
 
+                                val timeFormat = SimpleDateFormat("HH:mm", Locale("ru", "RU"))
+                                val dateFormat = SimpleDateFormat("dd.MM.yyyy", Locale("ru", "RU"))
+                                val calendar = java.util.Calendar.getInstance().apply {
+                                    timeInMillis = expense.date
+                                }
+                                val hasSavedTime = calendar.get(java.util.Calendar.HOUR_OF_DAY) != 0 ||
+                                        calendar.get(java.util.Calendar.MINUTE) != 0 ||
+                                        calendar.get(java.util.Calendar.SECOND) != 0
                                 Text(
-                                    text = SimpleDateFormat(
-                                        "dd.MM.yyyy, HH:mm",
-                                        Locale("ru", "RU")
-                                    ).format(Date(expense.date)),
+                                    text = if (hasSavedTime) {
+                                        "${dateFormat.format(Date(expense.date))}, ${timeFormat.format(Date(expense.date))}"
+                                    } else {
+                                        dateFormat.format(Date(expense.date))
+                                    },
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontSize = 12.sp
                                 )
@@ -158,10 +184,39 @@ fun HistoryScreen(expenses: List<Expense>) {
                                 color = MaterialTheme.colorScheme.onSurface,
                                 fontSize = 14.sp
                             )
+
+                        }
+                        DropdownMenu(
+                            expanded = showActions,
+                            onDismissRequest = { showActions = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Изменить") },
+                                onClick = { showActions = false; onEdit(expense) }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Удалить") },
+                                onClick = { showActions = false; onDelete(expense) }
+                            )
                         }
                     }
                 }
             }
         }
     }
+}
+
+private fun categoryIcon(category: String): String = when (category) {
+    "Продукты" -> "🍎"
+    "Транспорт" -> "🚌"
+    "Покупки" -> "🛍️"
+    "Развлечения" -> "🎬"
+    "Жильё" -> "🏠"
+    "Здоровье" -> "💊"
+    "Подписки" -> "📱"
+    "Топливо" -> "⛽"
+    "Красота" -> "💅"
+    "Путешествия" -> "✈️"
+    "Образование" -> "📚"
+    else -> "✦"
 }

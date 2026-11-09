@@ -15,6 +15,7 @@ import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.PieChart
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -23,6 +24,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.trackermoney.model.Expense
+import com.example.trackermoney.data.UserPreferencesRepository
 import com.example.trackermoney.ui.AddExpenseScreen
 import com.example.trackermoney.ui.HomeScreen
 import com.example.trackermoney.ui.HistoryScreen
@@ -40,6 +42,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         setContent {
+            val accountRepository = remember { UserPreferencesRepository(applicationContext) }
+            val scope = rememberCoroutineScope()
             var currentScreen by remember {
                 mutableStateOf("splash")
             }
@@ -50,6 +54,19 @@ class MainActivity : ComponentActivity() {
 
             var isDarkTheme by remember {
                 mutableStateOf(false)
+            }
+            var expensesLoaded by remember { mutableStateOf(false) }
+            var expenseBeingEdited by remember { mutableStateOf<Expense?>(null) }
+
+            LaunchedEffect(Unit) {
+                isDarkTheme = accountRepository.loadDarkTheme()
+                expenses = accountRepository.loadExpenses()
+                expensesLoaded = true
+                currentScreen = if (accountRepository.hasActiveSession()) "home" else "login"
+            }
+
+            LaunchedEffect(expenses, expensesLoaded) {
+                if (expensesLoaded) accountRepository.saveExpenses(expenses)
             }
 
             MaterialTheme(
@@ -91,7 +108,10 @@ class MainActivity : ComponentActivity() {
 
                             "login" -> LoginScreen(
                                 onLoginSuccess = {
-                                    currentScreen = "home"
+                                    scope.launch {
+                                        accountRepository.setLoggedIn(true)
+                                        currentScreen = "home"
+                                    }
                                 },
                                 onNavigateToRegister = {
                                     currentScreen = "register"
@@ -123,34 +143,47 @@ class MainActivity : ComponentActivity() {
                                         category,
                                         title,
                                         dateMillis ->
-                                    expenses = expenses + Expense(
-                                        amount = amount,
-                                        category = category,
-                                        note = title,
-                                        date = dateMillis
-                                    )
+                                    val edited = expenseBeingEdited
+                                    expenses = if (edited == null) expenses + Expense(
+                                        amount = amount, category = category, note = title, date = dateMillis
+                                    ) else expenses.map { if (it.id == edited.id) edited.copy(
+                                        amount = amount, category = category, note = title, date = dateMillis
+                                    ) else it }
+                                    expenseBeingEdited = null
                                     currentScreen = "home"
-                                }
+                                },
+                                expenseToEdit = expenseBeingEdited
                             )
 
                             "history" -> HistoryScreen(
-                                expenses = expenses
+                                expenses = expenses,
+                                onEdit = { expenseBeingEdited = it; currentScreen = "add" },
+                                onDelete = { expense -> expenses = expenses.filterNot { it.id == expense.id } }
                             )
 
                             "profile" -> SettingsScreen(
                                 isDarkTheme = isDarkTheme,
                                 onThemeChange = {
                                     isDarkTheme = it
+                                    scope.launch { accountRepository.saveDarkTheme(it) }
                                 },
                                 onLogout = {
-                                    expenses = emptyList()
-                                    currentScreen = "login"
+                                    scope.launch {
+                                        accountRepository.setLoggedIn(false)
+                                        currentScreen = "login"
+                                    }
+                                },
+                                onResetProgress = {
+                                    scope.launch {
+                                        accountRepository.clearProgress()
+                                        expenses = emptyList()
+                                        currentScreen = "login"
+                                    }
                                 }
                             )
 
-                            else -> PlaceholderScreen(
-                                title = "Аналитика"
-                            )
+                            "analytics" -> com.example.trackermoney.ui.AnalyticsScreen(expenses)
+                            else -> PlaceholderScreen(title = "Аналитика")
                         }
                     }
                 }

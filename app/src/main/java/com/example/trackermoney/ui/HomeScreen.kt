@@ -2,7 +2,6 @@ package com.example.trackermoney.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -19,11 +18,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.trackermoney.model.Expense
 import java.util.Locale
+import java.util.Calendar
+import kotlinx.coroutines.delay
 
 private val expenseCategories = listOf(
     "Продукты", "Транспорт", "Покупки",
     "Развлечения", "Жильё", "Здоровье",
-    "Подписки", "Другое"
+    "Подписки", "Топливо", "Красота", "Путешествия", "Образование"
 )
 
 private val expenseColors = listOf(
@@ -33,8 +34,8 @@ private val expenseColors = listOf(
     Color(0xFF8B5CF6),
     Color(0xFFEF4444),
     Color(0xFF06B6D4),
-    Color(0xFFEC4899),
-    Color(0xFF64748B)
+    Color(0xFFEC4899), Color(0xFF64748B), Color(0xFFEC4899),
+    Color(0xFF3B82F6), Color(0xFF8B5CF6)
 )
 
 private fun expenseColor(category: String): Color {
@@ -50,16 +51,29 @@ fun HomeScreen(
     expenses: List<Expense>,
     onAddExpense: () -> Unit
 ) {
-    val total = expenses.sumOf { it.amount }
+    var currentDayStart by remember { mutableLongStateOf(startOfTodayMillis()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            val nextDayStart = currentDayStart + dayLengthMillisFrom(currentDayStart)
+            delay((nextDayStart - System.currentTimeMillis()).coerceAtLeast(1L))
+            currentDayStart = startOfTodayMillis()
+        }
+    }
+    val nextDayStart = remember(currentDayStart) {
+        Calendar.getInstance().apply {
+            timeInMillis = currentDayStart
+            add(Calendar.DAY_OF_YEAR, 1)
+        }.timeInMillis
+    }
+    val todayExpenses = expenses.filter { it.date >= currentDayStart && it.date < nextDayStart }
+    val total = todayExpenses.sumOf { it.amount }
     val colors = MaterialTheme.colorScheme
 
-    val grouped = expenses
+    val grouped = todayExpenses
         .groupBy { it.category }
         .mapValues { (_, values) -> values.sumOf { it.amount } }
         .entries
         .sortedByDescending { it.value }
-
-    var selectedPeriod by remember { mutableStateOf("Месяц") }
 
     LazyColumn(
         modifier = Modifier
@@ -79,53 +93,6 @@ fun HomeScreen(
                 fontWeight = FontWeight.Bold,
                 color = colors.onBackground
             )
-        }
-
-        item {
-            Spacer(Modifier.height(16.dp))
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(
-                        colors.surfaceVariant,
-                        RoundedCornerShape(16.dp)
-                    )
-                    .padding(4.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                listOf("День", "Неделя", "Месяц", "Год").forEach { period ->
-                    val selected = period == selectedPeriod
-
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .background(
-                                if (selected) colors.surface
-                                else Color.Transparent,
-                                RoundedCornerShape(12.dp)
-                            )
-                            .clickable { selectedPeriod = period }
-                            .padding(vertical = 10.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = period,
-                            color = if (selected) {
-                                colors.onSurface
-                            } else {
-                                colors.onSurfaceVariant
-                            },
-                            fontWeight = if (selected) {
-                                FontWeight.SemiBold
-                            } else {
-                                FontWeight.Normal
-                            },
-                            fontSize = 14.sp
-                        )
-                    }
-                }
-            }
         }
 
         item {
@@ -175,7 +142,7 @@ fun HomeScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = "Всего потрачено",
+                        text = "Потрачено сегодня",
                         color = colors.onSurfaceVariant,
                         fontSize = 14.sp
                     )
@@ -263,7 +230,7 @@ fun HomeScreen(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = category.take(1),
+                                text = categoryIcon(category),
                                 color = color,
                                 fontSize = 22.sp,
                                 fontWeight = FontWeight.Bold
@@ -324,4 +291,31 @@ fun HomeScreen(
             }
         }
     }
+}
+
+private fun startOfTodayMillis(): Long = Calendar.getInstance().apply {
+    set(Calendar.HOUR_OF_DAY, 0)
+    set(Calendar.MINUTE, 0)
+    set(Calendar.SECOND, 0)
+    set(Calendar.MILLISECOND, 0)
+}.timeInMillis
+
+private fun dayLengthMillisFrom(dayStart: Long): Long = Calendar.getInstance().apply {
+    timeInMillis = dayStart
+    add(Calendar.DAY_OF_YEAR, 1)
+}.timeInMillis - dayStart
+
+private fun categoryIcon(category: String): String = when (category) {
+    "Продукты" -> "🍎"
+    "Транспорт" -> "🚌"
+    "Покупки" -> "🛍️"
+    "Развлечения" -> "🎬"
+    "Жильё" -> "🏠"
+    "Здоровье" -> "💊"
+    "Подписки" -> "📱"
+    "Топливо" -> "⛽"
+    "Красота" -> "💅"
+    "Путешествия" -> "✈️"
+    "Образование" -> "📚"
+    else -> "✦"
 }
