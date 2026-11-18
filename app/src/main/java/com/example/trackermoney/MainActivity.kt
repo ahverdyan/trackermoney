@@ -15,7 +15,6 @@ import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.PieChart
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -23,8 +22,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.trackermoney.model.Expense
-import com.example.trackermoney.data.UserPreferencesRepository
 import com.example.trackermoney.ui.AddExpenseScreen
 import com.example.trackermoney.ui.HomeScreen
 import com.example.trackermoney.ui.HistoryScreen
@@ -32,6 +29,8 @@ import com.example.trackermoney.ui.LoginScreen
 import com.example.trackermoney.ui.RegisterScreen
 import com.example.trackermoney.ui.SettingsScreen
 import com.example.trackermoney.ui.SplashScreen
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.trackermoney.viewmodel.TrackerViewModel
 
 private val Accent = Color(0xFF6275ED)
 private val Muted = Color(0xFF737887)
@@ -42,35 +41,22 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         setContent {
-            val accountRepository = remember { UserPreferencesRepository(applicationContext) }
-            val scope = rememberCoroutineScope()
-            var currentScreen by remember {
-                mutableStateOf("splash")
-            }
+            val trackerViewModel: TrackerViewModel = viewModel()
+            val uiState by trackerViewModel.uiState.collectAsState()
+            val snackbarHostState = remember { SnackbarHostState() }
 
-            var expenses by remember {
-                mutableStateOf(emptyList<Expense>())
-            }
-
-            var isDarkTheme by remember {
-                mutableStateOf(false)
-            }
-            var expensesLoaded by remember { mutableStateOf(false) }
-            var expenseBeingEdited by remember { mutableStateOf<Expense?>(null) }
-
-            LaunchedEffect(Unit) {
-                isDarkTheme = accountRepository.loadDarkTheme()
-                expenses = accountRepository.loadExpenses()
-                expensesLoaded = true
-                currentScreen = if (accountRepository.hasActiveSession()) "home" else "login"
-            }
-
-            LaunchedEffect(expenses, expensesLoaded) {
-                if (expensesLoaded) accountRepository.saveExpenses(expenses)
+            LaunchedEffect(trackerViewModel) {
+                trackerViewModel.messages.collect { message ->
+                    snackbarHostState.showSnackbar(
+                        message = message,
+                        withDismissAction = false,
+                        duration = SnackbarDuration.Short
+                    )
+                }
             }
 
             MaterialTheme(
-                colorScheme = if (isDarkTheme) {
+                colorScheme = if (uiState.isDarkTheme) {
                     darkColorScheme()
                 } else {
                     lightColorScheme()
@@ -78,17 +64,18 @@ class MainActivity : ComponentActivity() {
             ) {
                 Scaffold(
                     containerColor = MaterialTheme.colorScheme.background,
+                    snackbarHost = { SnackbarHost(snackbarHostState) },
                     bottomBar = {
                         if (
-                            currentScreen == "home" ||
-                            currentScreen == "analytics" ||
-                            currentScreen == "history" ||
-                            currentScreen == "profile"
+                            uiState.currentScreen == "home" ||
+                            uiState.currentScreen == "analytics" ||
+                            uiState.currentScreen == "history" ||
+                            uiState.currentScreen == "profile"
                         ) {
                             BottomNavigation(
-                                currentScreen = currentScreen,
-                                onNavigate = { currentScreen = it },
-                                onAdd = { currentScreen = "add" }
+                                currentScreen = uiState.currentScreen,
+                                onNavigate = trackerViewModel::navigateTo,
+                                onAdd = { trackerViewModel.navigateTo("add") }
                             )
                         }
                     }
@@ -98,91 +85,90 @@ class MainActivity : ComponentActivity() {
                             .fillMaxSize()
                             .padding(padding)
                     ) {
-                        when (currentScreen) {
+                        when (uiState.currentScreen) {
 
                             "splash" -> SplashScreen(
                                 onFinished = {
-                                    currentScreen = "login"
+                                    trackerViewModel.navigateTo("login")
                                 }
                             )
 
                             "login" -> LoginScreen(
-                                onLoginSuccess = {
-                                    scope.launch {
-                                        accountRepository.setLoggedIn(true)
-                                        currentScreen = "home"
-                                    }
-                                },
+                                isLoading = uiState.isLoading,
+                                onLogin = trackerViewModel::login,
                                 onNavigateToRegister = {
-                                    currentScreen = "register"
+                                    trackerViewModel.navigateTo("register")
                                 }
                             )
 
                             "register" -> RegisterScreen(
-                                onRegistered = {
-                                    currentScreen = "login"
-                                },
+                                isLoading = uiState.isLoading,
+                                onRegister = trackerViewModel::register,
                                 onNavigateToLogin = {
-                                    currentScreen = "login"
+                                    trackerViewModel.navigateTo("login")
                                 }
                             )
 
                             "home" -> HomeScreen(
-                                expenses = expenses,
+                                summary = uiState.homeSummary,
                                 onAddExpense = {
-                                    currentScreen = "add"
+                                    trackerViewModel.navigateTo("add")
                                 }
                             )
 
                             "add" -> AddExpenseScreen(
                                 onBack = {
-                                    currentScreen = "home"
+                                    trackerViewModel.navigateTo("home")
                                 },
-                                onSave = {
-                                        amount,
-                                        category,
-                                        title,
-                                        dateMillis ->
-                                    val edited = expenseBeingEdited
-                                    expenses = if (edited == null) expenses + Expense(
-                                        amount = amount, category = category, note = title, date = dateMillis
-                                    ) else expenses.map { if (it.id == edited.id) edited.copy(
-                                        amount = amount, category = category, note = title, date = dateMillis
-                                    ) else it }
-                                    expenseBeingEdited = null
-                                    currentScreen = "home"
-                                },
-                                expenseToEdit = expenseBeingEdited
+                                onSave = trackerViewModel::saveExpense,
+                                expenseToEdit = uiState.expenseBeingEdited
                             )
 
                             "history" -> HistoryScreen(
-                                expenses = expenses,
-                                onEdit = { expenseBeingEdited = it; currentScreen = "add" },
-                                onDelete = { expense -> expenses = expenses.filterNot { it.id == expense.id } }
+                                sortedExpenses = uiState.sortedExpenses,
+                                onEdit = trackerViewModel::editExpense,
+                                onDelete = trackerViewModel::deleteExpense
                             )
 
                             "profile" -> SettingsScreen(
-                                isDarkTheme = isDarkTheme,
-                                onThemeChange = {
-                                    isDarkTheme = it
-                                    scope.launch { accountRepository.saveDarkTheme(it) }
-                                },
-                                onLogout = {
-                                    scope.launch {
-                                        accountRepository.setLoggedIn(false)
-                                        currentScreen = "login"
-                                    }
-                                },
-                                onResetProgress = {
-                                    scope.launch {
-                                        accountRepository.clearProgress()
-                                        expenses = emptyList()
-                                        currentScreen = "login"
-                                    }
-                                }
+                                isDarkTheme = uiState.isDarkTheme,
+                                onThemeChange = trackerViewModel::changeTheme,
+                                onLogout = trackerViewModel::logout,
+                                onResetProgress = trackerViewModel::resetProgress
                             )
 
-                            "analytics" -> com.example.trackermoney.ui.AnalyticsScreen(expenses)
+                            "analytics" -> com.example.trackermoney.ui.AnalyticsScreen(
+                                data = uiState.analyticsData,
+                                selectedPeriod = uiState.analyticsPeriod,
+                                onPeriodChange = trackerViewModel::selectAnalyticsPeriod
+                            )
+                            "load_error" -> Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(24.dp),
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Text(
+                                    text = "Не удалось загрузить расходы",
+                                    style = MaterialTheme.typography.headlineSmall
+                                )
+                                Spacer(Modifier.height(12.dp))
+                                Text(
+                                    text = uiState.loadError.orEmpty(),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                                Spacer(Modifier.height(20.dp))
+                                Button(
+                                    onClick = trackerViewModel::retryLoadingExpenses,
+                                    enabled = !uiState.isLoading
+                                ) {
+                                    Text(if (uiState.isLoading) "Загрузка..." else "Попробовать снова")
+                                }
+                                TextButton(onClick = trackerViewModel::logout) {
+                                    Text("Выйти из аккаунта")
+                                }
+                            }
                             else -> PlaceholderScreen(title = "Аналитика")
                         }
                     }

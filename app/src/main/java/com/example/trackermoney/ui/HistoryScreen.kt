@@ -29,14 +29,10 @@ private val HistoryAccent = Color(0xFF6275ED)
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun HistoryScreen(
-    expenses: List<Expense>,
+    sortedExpenses: List<Expense>,
     onEdit: (Expense) -> Unit,
     onDelete: (Expense) -> Unit
 ) {
-    val sortedExpenses = expenses.sortedWith(
-        compareByDescending<Expense> { it.date }.thenByDescending { it.id }
-    )
-
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -54,7 +50,7 @@ fun HistoryScreen(
         Spacer(Modifier.height(8.dp))
 
         Text(
-            text = "Всего операций: ${expenses.size}",
+            text = "Всего операций: ${sortedExpenses.size}",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 14.sp
         )

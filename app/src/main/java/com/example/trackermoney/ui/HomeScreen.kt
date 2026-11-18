@@ -7,7 +7,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -16,10 +16,8 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.trackermoney.model.Expense
+import com.example.trackermoney.domain.HomeExpenseSummary
 import java.util.Locale
-import java.util.Calendar
-import kotlinx.coroutines.delay
 
 private val expenseCategories = listOf(
     "Продукты", "Транспорт", "Покупки",
@@ -48,32 +46,12 @@ private fun formatMoney(value: Double): String =
 
 @Composable
 fun HomeScreen(
-    expenses: List<Expense>,
+    summary: HomeExpenseSummary,
     onAddExpense: () -> Unit
 ) {
-    var currentDayStart by remember { mutableLongStateOf(startOfTodayMillis()) }
-    LaunchedEffect(Unit) {
-        while (true) {
-            val nextDayStart = currentDayStart + dayLengthMillisFrom(currentDayStart)
-            delay((nextDayStart - System.currentTimeMillis()).coerceAtLeast(1L))
-            currentDayStart = startOfTodayMillis()
-        }
-    }
-    val nextDayStart = remember(currentDayStart) {
-        Calendar.getInstance().apply {
-            timeInMillis = currentDayStart
-            add(Calendar.DAY_OF_YEAR, 1)
-        }.timeInMillis
-    }
-    val todayExpenses = expenses.filter { it.date >= currentDayStart && it.date < nextDayStart }
-    val total = todayExpenses.sumOf { it.amount }
+    val total = summary.todayTotal
     val colors = MaterialTheme.colorScheme
-
-    val grouped = todayExpenses
-        .groupBy { it.category }
-        .mapValues { (_, values) -> values.sumOf { it.amount } }
-        .entries
-        .sortedByDescending { it.value }
+    val grouped = summary.categories
 
     LazyColumn(
         modifier = Modifier
@@ -110,10 +88,10 @@ fun HomeScreen(
 
                         grouped.forEach { entry ->
                             val sweep =
-                                (entry.value / total * 360.0).toFloat()
+                                (entry.amount / total * 360.0).toFloat()
 
                             drawArc(
-                                color = expenseColor(entry.key),
+                                color = expenseColor(entry.category),
                                 startAngle = startAngle,
                                 sweepAngle = sweep,
                                 useCenter = false,
@@ -207,8 +185,8 @@ fun HomeScreen(
             }
         } else {
             items(grouped) { entry ->
-                val category = entry.key
-                val amount = entry.value
+                val category = entry.category
+                val amount = entry.amount
                 val percent = if (total > 0) amount / total else 0.0
                 val color = expenseColor(category)
 
@@ -292,18 +270,6 @@ fun HomeScreen(
         }
     }
 }
-
-private fun startOfTodayMillis(): Long = Calendar.getInstance().apply {
-    set(Calendar.HOUR_OF_DAY, 0)
-    set(Calendar.MINUTE, 0)
-    set(Calendar.SECOND, 0)
-    set(Calendar.MILLISECOND, 0)
-}.timeInMillis
-
-private fun dayLengthMillisFrom(dayStart: Long): Long = Calendar.getInstance().apply {
-    timeInMillis = dayStart
-    add(Calendar.DAY_OF_YEAR, 1)
-}.timeInMillis - dayStart
 
 private fun categoryIcon(category: String): String = when (category) {
     "Продукты" -> "🍎"

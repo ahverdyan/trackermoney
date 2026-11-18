@@ -15,13 +15,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.text.SimpleDateFormat
-import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import com.example.trackermoney.model.Expense
@@ -65,6 +65,10 @@ fun AddExpenseScreen(
         .replace(',', '.')
         .toDoubleOrNull()
 
+    val colors = MaterialTheme.colorScheme
+    // Определяем активную тему по цвету фона, чтобы учитывать и ручное переключение в настройках.
+    val isDarkTheme = colors.background.luminance() < 0.5f
+
     val dateFormatter = remember { SimpleDateFormat("d MMMM yyyy", Locale("ru", "RU")) }
 
     // диалог календаря
@@ -99,7 +103,7 @@ fun AddExpenseScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(if (isDarkTheme) colors.background else Color.White)
             .padding(horizontal = 20.dp)
     ) {
         // заголовок
@@ -112,7 +116,7 @@ fun AddExpenseScreen(
             Text(
                 "‹",
                 fontSize = 36.sp,
-                color = Color(0xFF252735),
+                color = colors.onBackground,
                 modifier = Modifier
                     .clickable { onBack() }
                     .padding(end = 22.dp)
@@ -135,13 +139,20 @@ fun AddExpenseScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color(0xFFF5F4FF), RoundedCornerShape(22.dp))
-                    .border(1.dp, Color(0xFFDFDCFF), RoundedCornerShape(22.dp))
+                    .background(
+                        if (isDarkTheme) colors.surfaceVariant else Color(0xFFF5F4FF),
+                        RoundedCornerShape(22.dp)
+                    )
+                    .border(
+                        1.dp,
+                        if (isDarkTheme) colors.outlineVariant else Color(0xFFDFDCFF),
+                        RoundedCornerShape(22.dp)
+                    )
                     .padding(20.dp)
             ) {
                 Text(
                     "Сумма",
-                    color = Color(0xFF737887),
+                    color = if (isDarkTheme) colors.onSurfaceVariant else Color(0xFF737887),
                     fontWeight = FontWeight.Medium
                 )
 
@@ -150,7 +161,7 @@ fun AddExpenseScreen(
                         "₽",
                         fontSize = 38.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF202330)
+                        color = colors.onSurface
                     )
                     Spacer(Modifier.width(12.dp))
 
@@ -165,7 +176,7 @@ fun AddExpenseScreen(
                         textStyle = TextStyle(
                             fontSize = 32.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF202330)
+                            color = colors.onSurface
                         ),
                         decorationBox = { innerTextField ->
                             Box {
@@ -174,7 +185,7 @@ fun AddExpenseScreen(
                                         "0,00",
                                         fontSize = 32.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = Color(0xFFB9BBC5)
+                                        color = if (isDarkTheme) colors.onSurfaceVariant else Color(0xFFB9BBC5)
                                     )
                                 }
                                 innerTextField()
@@ -189,7 +200,7 @@ fun AddExpenseScreen(
                 Text(
                     "Информация о расходе",
                     fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF555967)
+                    color = if (isDarkTheme) colors.onSurfaceVariant else Color(0xFF555967)
                 )
 
                 OutlinedTextField(
@@ -207,7 +218,7 @@ fun AddExpenseScreen(
                 Text(
                     "Дата",
                     fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF555967)
+                    color = if (isDarkTheme) colors.onSurfaceVariant else Color(0xFF555967)
                 )
 
                 Surface(
@@ -217,9 +228,9 @@ fun AddExpenseScreen(
                     shape = RoundedCornerShape(18.dp),
                     border = androidx.compose.foundation.BorderStroke(
                         1.dp,
-                        Color(0xFFE1E2E8)
+                        if (isDarkTheme) colors.outlineVariant else Color(0xFFE1E2E8)
                     ),
-                    color = Color.White
+                    color = if (isDarkTheme) colors.surface else Color.White
                 ) {
                     Row(
                         modifier = Modifier.padding(18.dp),
@@ -233,7 +244,7 @@ fun AddExpenseScreen(
                             modifier = Modifier.weight(1f),
                             fontWeight = FontWeight.Medium
                         )
-                        Text("›", fontSize = 28.sp, color = Color.Gray)
+                        Text("›", fontSize = 28.sp, color = colors.onSurfaceVariant)
                     }
                 }
             }
@@ -243,7 +254,7 @@ fun AddExpenseScreen(
                 Text(
                     "Категория",
                     fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF555967)
+                    color = if (isDarkTheme) colors.onSurfaceVariant else Color(0xFF555967)
                 )
 
                 addCategories.chunked(3).forEach { rowCategories ->
@@ -261,11 +272,16 @@ fun AddExpenseScreen(
                                     .border(
                                         width = if (selected) 2.dp else 1.dp,
                                         color = if (selected) Color(0xFF6275ED)
-                                        else Color(0xFFD8DAE1),
+                                        else if (isDarkTheme) colors.outlineVariant else Color(0xFFD8DAE1),
                                         shape = RoundedCornerShape(18.dp)
                                     )
                                     .background(
-                                        if (selected) Color(0xFFF2F1FF) else Color.White,
+                                        when {
+                                            selected && isDarkTheme -> colors.primaryContainer
+                                            selected -> Color(0xFFF2F1FF)
+                                            isDarkTheme -> colors.surface
+                                            else -> Color.White
+                                        },
                                         RoundedCornerShape(18.dp)
                                     )
                                     .clickable { selectedCategory = category.name }
@@ -292,7 +308,8 @@ fun AddExpenseScreen(
                                     fontSize = 12.sp,
                                     fontWeight = if (selected) FontWeight.Bold
                                     else FontWeight.Normal,
-                                    color = Color(0xFF292C38),
+                                    color = if (selected && isDarkTheme) colors.onPrimaryContainer
+                                    else if (isDarkTheme) colors.onSurface else Color(0xFF292C38),
                                     maxLines = 1
                                 )
                             }
@@ -312,19 +329,11 @@ fun AddExpenseScreen(
         Button(
             onClick = {
                 if (parsedAmount != null && parsedAmount > 0) {
-                    val dateCalendar = Calendar.getInstance().apply {
-                        timeInMillis = selectedDateMillis
-                        val currentTime = Calendar.getInstance()
-                        set(Calendar.HOUR_OF_DAY, currentTime.get(Calendar.HOUR_OF_DAY))
-                        set(Calendar.MINUTE, currentTime.get(Calendar.MINUTE))
-                        set(Calendar.SECOND, currentTime.get(Calendar.SECOND))
-                        set(Calendar.MILLISECOND, currentTime.get(Calendar.MILLISECOND))
-                    }
                     onSave(
                         parsedAmount,
                         selectedCategory,
                         title.trim(),
-                        dateCalendar.timeInMillis
+                        selectedDateMillis
                     )
                 }
             },

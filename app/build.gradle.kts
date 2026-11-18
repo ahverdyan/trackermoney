@@ -1,7 +1,20 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
+}
+
+val localProperties = Properties().apply {
+    val propertiesFile = rootProject.file("local.properties")
+    if (propertiesFile.exists()) propertiesFile.inputStream().use { load(it) }
+}
+
+fun buildConfigString(propertyName: String): String {
+    val value = localProperties.getProperty(propertyName, "")
+    return "\"${value.replace("\\", "\\\\").replace("\"", "\\\"")}\""
 }
 
 android {
@@ -17,6 +30,8 @@ android {
 
         testInstrumentationRunner =
             "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "SUPABASE_URL", buildConfigString("supabase.url"))
+        buildConfigField("String", "SUPABASE_PUBLISHABLE_KEY", buildConfigString("supabase.publishableKey"))
     }
 
     buildTypes {
@@ -32,6 +47,7 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
+        isCoreLibraryDesugaringEnabled = true
     }
 
     kotlinOptions {
@@ -40,7 +56,9 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
+
 }
 
 dependencies {
@@ -58,6 +76,11 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(platform(libs.supabase.bom))
+    implementation(libs.supabase.auth)
+    implementation(libs.supabase.postgrest)
+    implementation(libs.ktor.client.android)
+    coreLibraryDesugaring(libs.desugar.jdk.libs)
 
     debugImplementation(libs.androidx.compose.ui.tooling)
 

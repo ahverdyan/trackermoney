@@ -19,32 +19,27 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.example.trackermoney.data.UserPreferencesRepository
-import kotlinx.coroutines.launch
 
 @Composable
 fun LoginScreen(
-    onLoginSuccess: () -> Unit,
+    isLoading: Boolean,
+    onLogin: (String, String) -> Unit,
     onNavigateToRegister: () -> Unit
 ) {
     val context = LocalContext.current
-    val repository = remember {
-        UserPreferencesRepository(context.applicationContext)
-    }
-    val scope = rememberCoroutineScope()
 
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var isLoading by remember { mutableStateOf(false) }
+    var isPasswordVisible by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -89,7 +84,16 @@ fun LoginScreen(
             modifier = Modifier.fillMaxWidth(),
             label = { Text("Пароль") },
             singleLine = true,
-            visualTransformation = PasswordVisualTransformation(),
+            visualTransformation = if (isPasswordVisible) {
+                VisualTransformation.None
+            } else {
+                PasswordVisualTransformation()
+            },
+            trailingIcon = {
+                TextButton(onClick = { isPasswordVisible = !isPasswordVisible }) {
+                    Text(if (isPasswordVisible) "Скрыть" else "Показать")
+                }
+            },
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.Password
             )
@@ -121,40 +125,7 @@ fun LoginScreen(
                     }
 
                     else -> {
-                        scope.launch {
-                            isLoading = true
-
-                            try {
-                                val success = repository.authenticate(
-                                    email = normalizedEmail,
-                                    password = password
-                                )
-
-                                if (success) {
-                                    Toast.makeText(
-                                        context,
-                                        "Вход выполнен успешно!",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
-
-                                    onLoginSuccess()
-                                } else {
-                                    Toast.makeText(
-                                        context,
-                                        "Неверный email или пароль",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
-                                }
-                            } catch (e: Exception) {
-                                Toast.makeText(
-                                    context,
-                                    "Не удалось выполнить вход",
-                                    Toast.LENGTH_SHORT
-                                ).show()
-                            } finally {
-                                isLoading = false
-                            }
-                        }
+                        onLogin(normalizedEmail, password)
                     }
                 }
             },

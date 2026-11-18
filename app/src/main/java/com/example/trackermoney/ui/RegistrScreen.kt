@@ -18,33 +18,29 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
-import com.example.trackermoney.data.UserPreferencesRepository
-import kotlinx.coroutines.launch
 
 @Composable
 fun RegisterScreen(
-    onRegistered: () -> Unit,
+    isLoading: Boolean,
+    onRegister: (String, String) -> Unit,
     onNavigateToLogin: () -> Unit
 ) {
     val context = LocalContext.current
-    val repository = remember {
-        UserPreferencesRepository(context.applicationContext)
-    }
-    val scope = rememberCoroutineScope()
 
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
-    var isLoading by remember { mutableStateOf(false) }
+    var isPasswordVisible by remember { mutableStateOf(false) }
+    var isConfirmPasswordVisible by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -90,7 +86,16 @@ fun RegisterScreen(
             modifier = Modifier.fillMaxWidth(),
             label = { Text("Пароль") },
             singleLine = true,
-            visualTransformation = PasswordVisualTransformation(),
+            visualTransformation = if (isPasswordVisible) {
+                VisualTransformation.None
+            } else {
+                PasswordVisualTransformation()
+            },
+            trailingIcon = {
+                TextButton(onClick = { isPasswordVisible = !isPasswordVisible }) {
+                    Text(if (isPasswordVisible) "Скрыть" else "Показать")
+                }
+            },
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.Password
             )
@@ -104,7 +109,18 @@ fun RegisterScreen(
             modifier = Modifier.fillMaxWidth(),
             label = { Text("Повторите пароль") },
             singleLine = true,
-            visualTransformation = PasswordVisualTransformation(),
+            visualTransformation = if (isConfirmPasswordVisible) {
+                VisualTransformation.None
+            } else {
+                PasswordVisualTransformation()
+            },
+            trailingIcon = {
+                TextButton(onClick = {
+                    isConfirmPasswordVisible = !isConfirmPasswordVisible
+                }) {
+                    Text(if (isConfirmPasswordVisible) "Скрыть" else "Показать")
+                }
+            },
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.Password
             )
@@ -155,40 +171,7 @@ fun RegisterScreen(
                     }
 
                     else -> {
-                        scope.launch {
-                            isLoading = true
-
-                            try {
-                                val registered = repository.register(
-                                    email = normalizedEmail,
-                                    password = password
-                                )
-
-                                if (registered) {
-                                    Toast.makeText(
-                                        context,
-                                        "Регистрация прошла успешно!",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
-
-                                    onRegistered()
-                                } else {
-                                    Toast.makeText(
-                                        context,
-                                        "Этот email уже зарегистрирован",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
-                                }
-                            } catch (e: Exception) {
-                                Toast.makeText(
-                                    context,
-                                    "Не удалось выполнить регистрацию",
-                                    Toast.LENGTH_SHORT
-                                ).show()
-                            } finally {
-                                isLoading = false
-                            }
-                        }
+                        onRegister(normalizedEmail, password)
                     }
                 }
             },

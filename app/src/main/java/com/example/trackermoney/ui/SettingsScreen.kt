@@ -238,7 +238,7 @@ fun SettingsScreen(
         AlertDialog(
             onDismissRequest = { showResetConfirmation = false },
             title = { Text("Сбросить прогресс?") },
-            text = { Text("Все расходы будут удалены, а аккаунт выйдет из приложения. Регистрационные данные останутся на устройстве.") },
+            text = { Text("Все расходы будут удалены. Вы останетесь в аккаунте.") },
             confirmButton = {
                 TextButton(onClick = { showResetConfirmation = false; onResetProgress() }) {
                     Text("Сбросить", color = MaterialTheme.colorScheme.error)
