@@ -10,29 +10,17 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.colorResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.trackermoney.domain.AnalyticsPeriod
 import com.example.trackermoney.domain.ExpenseChartData
+import com.example.trackermoney.R
 import java.util.Locale
-
-private val categoryColors = mapOf(
-    "Продукты" to Color(0xFFF59E0B), "Транспорт" to Color(0xFF10B981),
-    "Покупки" to Color(0xFF3B82F6), "Развлечения" to Color(0xFF8B5CF6),
-    "Жильё" to Color(0xFFEF4444), "Здоровье" to Color(0xFF06B6D4),
-    "Подписки" to Color(0xFFEC4899), "Топливо" to Color(0xFF64748B),
-    "Красота" to Color(0xFFE11D8D), "Путешествия" to Color(0xFF2563EB),
-    "Образование" to Color(0xFF9333EA)
-)
-
-private fun categoryChartColor(category: String, index: Int): Color =
-    categoryColors[category] ?: listOf(
-        Color(0xFF14B8A6), Color(0xFFF97316), Color(0xFF84CC16),
-        Color(0xFFEC4899), Color(0xFF6366F1)
-    )[index % 5]
 
 @Composable
 fun AnalyticsScreen(
@@ -43,6 +31,23 @@ fun AnalyticsScreen(
     val categories = data.categories
     val buckets = data.buckets
     val amounts = data.amounts
+    val currentLocale = LocalConfiguration.current.locales[0]
+    val chartColors = categories.mapIndexed { index, category ->
+        val fallbackColors = listOf(
+            R.color.category_extra_teal,
+            R.color.category_extra_orange,
+            R.color.category_extra_lime,
+            R.color.category_extra_pink,
+            R.color.category_extra_indigo
+        )
+        colorResource(
+            if (categoryNameResource(category) == R.string.category_other_legacy) {
+                fallbackColors[index % fallbackColors.size]
+            } else {
+                categoryColorResource(category)
+            }
+        )
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -50,24 +55,34 @@ fun AnalyticsScreen(
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         item {
-            Text("Аналитика", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-            Text("Сравнение расходов по категориям", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(R.string.analytics_title), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.analytics_subtitle), color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(8.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 AnalyticsPeriod.values().forEach { period ->
                     FilterChip(
                         selected = selectedPeriod == period,
                         onClick = { onPeriodChange(period) },
-                        label = { Text(period.title) }
+                        label = {
+                            Text(
+                                stringResource(
+                                    when (period) {
+                                        AnalyticsPeriod.WEEK -> R.string.period_week
+                                        AnalyticsPeriod.MONTH -> R.string.period_month
+                                        AnalyticsPeriod.YEAR -> R.string.period_year
+                                    }
+                                )
+                            )
+                        }
                     )
                 }
             }
             Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Потрачено за выбранный период", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(String.format(Locale("ru", "RU"), "%,.2f ₽", data.total), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.analytics_period_spending), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(String.format(currentLocale, "%,.2f ₽", data.total), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     if (categories.isEmpty()) {
-                        Text("Добавь расходы, чтобы увидеть диаграмму", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.analytics_add_expenses_hint), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     } else {
                         Canvas(Modifier.fillMaxWidth().height(190.dp)) {
                             val slotWidth = size.width / buckets.size
@@ -80,7 +95,7 @@ fun AnalyticsScreen(
                                     if (height > 0f) {
                                         y -= height
                                         drawRect(
-                                            color = categoryChartColor(categories[categoryIndex], categoryIndex),
+                                            color = chartColors[categoryIndex],
                                             topLeft = androidx.compose.ui.geometry.Offset(x, y),
                                             size = androidx.compose.ui.geometry.Size(barWidth, height)
                                         )
@@ -104,15 +119,15 @@ fun AnalyticsScreen(
                 }
             }
             if (categories.isNotEmpty()) {
-                Text("Категории", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.categories_title), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
                 categories.chunked(2).forEach { rowCategories ->
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         rowCategories.forEach { category ->
                             val index = categories.indexOf(category)
                             Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-                                Box(Modifier.size(12.dp).background(categoryChartColor(category, index), CircleShape))
+                                Box(Modifier.size(12.dp).background(chartColors[index], CircleShape))
                                 Spacer(Modifier.width(6.dp))
-                                Text(category, fontSize = 12.sp, maxLines = 1)
+                                Text(localizedCategoryName(category), fontSize = 12.sp, maxLines = 1)
                             }
                         }
                         if (rowCategories.size == 1) Spacer(Modifier.weight(1f))

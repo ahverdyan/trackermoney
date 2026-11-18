@@ -1,6 +1,7 @@
 package com.example.trackermoney.ui
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -10,48 +11,33 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.colorResource
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.trackermoney.domain.HomeExpenseSummary
+import com.example.trackermoney.R
 import java.util.Locale
 
-private val expenseCategories = listOf(
-    "Продукты", "Транспорт", "Покупки",
-    "Развлечения", "Жильё", "Здоровье",
-    "Подписки", "Топливо", "Красота", "Путешествия", "Образование"
-)
-
-private val expenseColors = listOf(
-    Color(0xFFF59E0B),
-    Color(0xFF10B981),
-    Color(0xFF3B82F6),
-    Color(0xFF8B5CF6),
-    Color(0xFFEF4444),
-    Color(0xFF06B6D4),
-    Color(0xFFEC4899), Color(0xFF64748B), Color(0xFFEC4899),
-    Color(0xFF3B82F6), Color(0xFF8B5CF6)
-)
-
-private fun expenseColor(category: String): Color {
-    val index = expenseCategories.indexOf(category)
-    return expenseColors[if (index < 0) 7 else index]
-}
-
-private fun formatMoney(value: Double): String =
-    String.format(Locale("ru", "RU"), "%,.2f ₽", value)
+private fun formatMoney(value: Double, locale: Locale): String =
+    String.format(locale, "%,.2f ₽", value)
 
 @Composable
 fun HomeScreen(
     summary: HomeExpenseSummary,
+    monthlyBudget: Double,
     onAddExpense: () -> Unit
 ) {
     val total = summary.todayTotal
     val colors = MaterialTheme.colorScheme
     val grouped = summary.categories
+    val currentLocale = LocalConfiguration.current.locales[0]
+    val groupedColors = grouped.map { colorResource(categoryColorResource(it.category)) }
 
     LazyColumn(
         modifier = Modifier
@@ -66,10 +52,18 @@ fun HomeScreen(
     ) {
         item {
             Text(
-                text = "Трекер расходов",
+                text = stringResource(R.string.home_title),
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
                 color = colors.onBackground
+            )
+        }
+
+        item {
+            Spacer(Modifier.height(16.dp))
+            MonthlyBudgetCard(
+                monthSpent = summary.monthTotal,
+                budget = monthlyBudget
             )
         }
 
@@ -86,12 +80,12 @@ fun HomeScreen(
                     Canvas(Modifier.size(240.dp)) {
                         var startAngle = -90f
 
-                        grouped.forEach { entry ->
+                        grouped.forEachIndexed { index, entry ->
                             val sweep =
                                 (entry.amount / total * 360.0).toFloat()
 
                             drawArc(
-                                color = expenseColor(entry.category),
+                                color = groupedColors[index],
                                 startAngle = startAngle,
                                 sweepAngle = sweep,
                                 useCenter = false,
@@ -120,7 +114,7 @@ fun HomeScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = "Потрачено сегодня",
+                        text = stringResource(R.string.home_spent_today),
                         color = colors.onSurfaceVariant,
                         fontSize = 14.sp
                     )
@@ -128,7 +122,7 @@ fun HomeScreen(
                     Spacer(Modifier.height(4.dp))
 
                     Text(
-                        text = formatMoney(total),
+                        text = formatMoney(total, currentLocale),
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
                         color = colors.onSurface
@@ -141,7 +135,7 @@ fun HomeScreen(
             Spacer(Modifier.height(25.dp))
 
             Text(
-                text = "Топ категорий",
+                text = stringResource(R.string.home_top_categories),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.SemiBold,
                 color = colors.onBackground
@@ -165,19 +159,24 @@ fun HomeScreen(
                             .padding(24.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text("🧾", fontSize = 32.sp)
+                        Image(
+                            painter = painterResource(R.drawable.ic_expense_receipt),
+                            contentDescription = stringResource(R.string.expense_receipt_description),
+                            modifier = Modifier.size(40.dp),
+                            colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(colors.primary)
+                        )
 
                         Spacer(Modifier.height(8.dp))
 
                         Text(
-                            text = "Пока нет расходов",
+                            text = stringResource(R.string.home_no_expenses),
                             color = colors.onSurface
                         )
 
                         Spacer(Modifier.height(8.dp))
 
                         Text(
-                            text = "Нажми «+», чтобы добавить первую покупку",
+                            text = stringResource(R.string.home_add_first_expense),
                             color = colors.onSurfaceVariant
                         )
                     }
@@ -188,7 +187,7 @@ fun HomeScreen(
                 val category = entry.category
                 val amount = entry.amount
                 val percent = if (total > 0) amount / total else 0.0
-                val color = expenseColor(category)
+                val color = colorResource(categoryColorResource(category))
 
                 Column(
                     modifier = Modifier
@@ -221,7 +220,7 @@ fun HomeScreen(
                             modifier = Modifier.weight(1f)
                         ) {
                             Text(
-                                text = category,
+                                text = localizedCategoryName(category),
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = 16.sp,
                                 color = colors.onSurface
@@ -235,7 +234,7 @@ fun HomeScreen(
                         }
 
                         Text(
-                            text = formatMoney(amount),
+                            text = formatMoney(amount, currentLocale),
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 16.sp,
                             color = colors.onSurface
@@ -271,17 +270,69 @@ fun HomeScreen(
     }
 }
 
-private fun categoryIcon(category: String): String = when (category) {
-    "Продукты" -> "🍎"
-    "Транспорт" -> "🚌"
-    "Покупки" -> "🛍️"
-    "Развлечения" -> "🎬"
-    "Жильё" -> "🏠"
-    "Здоровье" -> "💊"
-    "Подписки" -> "📱"
-    "Топливо" -> "⛽"
-    "Красота" -> "💅"
-    "Путешествия" -> "✈️"
-    "Образование" -> "📚"
-    else -> "✦"
+@Composable
+private fun MonthlyBudgetCard(monthSpent: Double, budget: Double) {
+    val colors = MaterialTheme.colorScheme
+    val currentLocale = LocalConfiguration.current.locales[0]
+    val progress = if (budget > 0.0) (monthSpent / budget).toFloat().coerceIn(0f, 1f) else 0f
+    val remaining = budget - monthSpent
+    val progressColor = if (remaining < 0.0) colors.error else colors.primary
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = colors.surface)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(18.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = stringResource(R.string.budget_month_title),
+                    modifier = Modifier.weight(1f),
+                    fontWeight = FontWeight.SemiBold,
+                    color = colors.onSurface
+                )
+                Text(
+                    text = if (budget > 0.0) {
+                        if (remaining >= 0.0) stringResource(R.string.budget_remaining, formatMoney(remaining, currentLocale))
+                        else stringResource(R.string.budget_exceeded, formatMoney(-remaining, currentLocale))
+                    } else {
+                        stringResource(R.string.budget_not_set)
+                    },
+                    color = if (remaining < 0.0) colors.error else colors.onSurfaceVariant,
+                    fontSize = 12.sp
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = if (budget > 0.0) {
+                    stringResource(R.string.budget_month_progress, formatMoney(monthSpent, currentLocale), formatMoney(budget, currentLocale))
+                } else {
+                    stringResource(R.string.budget_month_spent, formatMoney(monthSpent, currentLocale))
+                },
+                color = colors.onSurfaceVariant,
+                fontSize = 14.sp
+            )
+            Spacer(Modifier.height(12.dp))
+            LinearProgressIndicator(
+                progress = { progress },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(8.dp),
+                color = progressColor,
+                trackColor = colors.surfaceVariant
+            )
+            if (budget <= 0.0) {
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = stringResource(R.string.budget_set_in_settings),
+                    color = colors.onSurfaceVariant,
+                    fontSize = 12.sp
+                )
+            }
+        }
+    }
 }

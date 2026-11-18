@@ -1,6 +1,7 @@
 package com.example.trackermoney.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.*
@@ -15,16 +16,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.trackermoney.model.Expense
+import com.example.trackermoney.R
 import java.text.SimpleDateFormat
 import java.util.Date
-import java.util.Locale
-
-private val HistoryAccent = Color(0xFF6275ED)
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -33,6 +34,8 @@ fun HistoryScreen(
     onEdit: (Expense) -> Unit,
     onDelete: (Expense) -> Unit
 ) {
+    val historyAccent = androidx.compose.ui.res.colorResource(R.color.brand_accent)
+    val currentLocale = LocalConfiguration.current.locales[0]
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -41,7 +44,7 @@ fun HistoryScreen(
             .padding(top = 24.dp)
     ) {
         Text(
-            text = "История операций",
+            text = stringResource(R.string.history_title),
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onBackground
@@ -50,7 +53,7 @@ fun HistoryScreen(
         Spacer(Modifier.height(8.dp))
 
         Text(
-            text = "Всего операций: ${sortedExpenses.size}",
+            text = stringResource(R.string.history_total_operations, sortedExpenses.size),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 14.sp
         )
@@ -67,12 +70,17 @@ fun HistoryScreen(
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text("🧾", fontSize = 42.sp)
+                    Image(
+                        painter = painterResource(R.drawable.ic_expense_receipt),
+                        contentDescription = stringResource(R.string.expense_receipt_description),
+                        modifier = Modifier.size(48.dp),
+                        colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(MaterialTheme.colorScheme.primary)
+                    )
 
                     Spacer(Modifier.height(12.dp))
 
                     Text(
-                        text = "Пока нет операций",
+                        text = stringResource(R.string.history_empty_title),
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 18.sp,
                         color = MaterialTheme.colorScheme.onSurface
@@ -81,7 +89,7 @@ fun HistoryScreen(
                     Spacer(Modifier.height(6.dp))
 
                     Text(
-                        text = "Добавленные расходы появятся здесь",
+                        text = stringResource(R.string.history_empty_hint),
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -94,6 +102,11 @@ fun HistoryScreen(
             ) {
                 items(sortedExpenses) { expense ->
                     var showActions by remember(expense.id) { mutableStateOf(false) }
+                    val expenseTitle = if (expense.note.isBlank()) {
+                        localizedCategoryName(expense.category)
+                    } else {
+                        expense.note
+                    }
                     Card(
                         modifier = Modifier.fillMaxWidth().combinedClickable(
                             onClick = { showActions = true },
@@ -114,14 +127,14 @@ fun HistoryScreen(
                                 modifier = Modifier
                                     .size(48.dp)
                                     .background(
-                                        HistoryAccent.copy(alpha = 0.12f),
+                                        historyAccent.copy(alpha = 0.12f),
                                         RoundedCornerShape(14.dp)
                                     ),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
                                     text = categoryIcon(expense.category),
-                                    color = HistoryAccent,
+                                    color = historyAccent,
                                     fontSize = 21.sp,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -133,9 +146,7 @@ fun HistoryScreen(
                                 modifier = Modifier.weight(1f)
                             ) {
                                 Text(
-                                    text = expense.note.ifBlank {
-                                        expense.category
-                                    },
+                                    text = expenseTitle,
                                     fontWeight = FontWeight.SemiBold,
                                     color = MaterialTheme.colorScheme.onSurface,
                                     fontSize = 15.sp
@@ -144,13 +155,13 @@ fun HistoryScreen(
                                 Spacer(Modifier.height(4.dp))
 
                                 Text(
-                                    text = expense.category,
-                                    color = HistoryAccent,
+                                    text = localizedCategoryName(expense.category),
+                                    color = historyAccent,
                                     fontSize = 13.sp
                                 )
 
-                                val timeFormat = SimpleDateFormat("HH:mm", Locale("ru", "RU"))
-                                val dateFormat = SimpleDateFormat("dd.MM.yyyy", Locale("ru", "RU"))
+                                val timeFormat = SimpleDateFormat("HH:mm", currentLocale)
+                                val dateFormat = SimpleDateFormat("dd.MM.yyyy", currentLocale)
                                 val calendar = java.util.Calendar.getInstance().apply {
                                     timeInMillis = expense.date
                                 }
@@ -172,7 +183,7 @@ fun HistoryScreen(
 
                             Text(
                                 text = String.format(
-                                    Locale("ru", "RU"),
+                                    currentLocale,
                                     "-%,.2f ₽",
                                     expense.amount
                                 ),
@@ -187,11 +198,11 @@ fun HistoryScreen(
                             onDismissRequest = { showActions = false }
                         ) {
                             DropdownMenuItem(
-                                text = { Text("Изменить") },
+                                text = { Text(stringResource(R.string.edit)) },
                                 onClick = { showActions = false; onEdit(expense) }
                             )
                             DropdownMenuItem(
-                                text = { Text("Удалить") },
+                                text = { Text(stringResource(R.string.delete)) },
                                 onClick = { showActions = false; onDelete(expense) }
                             )
                         }
@@ -200,19 +211,4 @@ fun HistoryScreen(
             }
         }
     }
-}
-
-private fun categoryIcon(category: String): String = when (category) {
-    "Продукты" -> "🍎"
-    "Транспорт" -> "🚌"
-    "Покупки" -> "🛍️"
-    "Развлечения" -> "🎬"
-    "Жильё" -> "🏠"
-    "Здоровье" -> "💊"
-    "Подписки" -> "📱"
-    "Топливо" -> "⛽"
-    "Красота" -> "💅"
-    "Путешествия" -> "✈️"
-    "Образование" -> "📚"
-    else -> "✦"
 }

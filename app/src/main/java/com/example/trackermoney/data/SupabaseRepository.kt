@@ -61,12 +61,40 @@ class SupabaseRepository(
         loadExpenses().forEach { expense -> deleteExpense(expense) }
     }
 
+    suspend fun loadMonthlyBudget(): Double {
+        val userId = currentUserId()
+        return client.from("user_monthly_budgets").select {
+            filter { eq("user_id", userId) }
+        }.decodeList<CloudUserSettings>().firstOrNull()?.monthlyBudget ?: 0.0
+    }
+
+    suspend fun saveMonthlyBudget(amount: Double) {
+        require(amount.isFinite() && amount >= 0.0) {
+            "Monthly budget must be a non-negative number"
+        }
+        client.from("user_monthly_budgets").upsert(
+            CloudUserSettings(
+                userId = currentUserId(),
+                monthlyBudget = amount
+            )
+        )
+    }
+
+    private fun currentUserId(): String = client.auth.currentUserOrNull()?.id
+        ?: error("An authenticated user is required to access the monthly budget")
+
     private fun Expense.toCloudExpense() = CloudExpense(
         id = id,
         amount = amount,
         category = category,
         note = note,
         spentAt = Instant.ofEpochMilli(date).toString()
+    )
+
+    @Serializable
+    private data class CloudUserSettings(
+        @SerialName("user_id") val userId: String,
+        @SerialName("monthly_budget") val monthlyBudget: Double
     )
 
     @Serializable

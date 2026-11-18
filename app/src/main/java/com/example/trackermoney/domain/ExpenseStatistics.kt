@@ -5,11 +5,7 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 
-enum class AnalyticsPeriod(val title: String) {
-    WEEK("Неделя"),
-    MONTH("Месяц"),
-    YEAR("Год")
-}
+enum class AnalyticsPeriod { WEEK, MONTH, YEAR }
 
 data class CategoryExpenseTotal(
     val category: String,
@@ -18,7 +14,8 @@ data class CategoryExpenseTotal(
 
 data class HomeExpenseSummary(
     val todayTotal: Double = 0.0,
-    val categories: List<CategoryExpenseTotal> = emptyList()
+    val categories: List<CategoryExpenseTotal> = emptyList(),
+    val monthTotal: Double = 0.0
 )
 
 data class ExpenseChartBucket(
@@ -42,9 +39,18 @@ object ExpenseStatistics {
             clearTime()
         }
         val nextDay = (today.clone() as Calendar).apply { add(Calendar.DAY_OF_YEAR, 1) }
+        val monthStart = (today.clone() as Calendar).apply {
+            set(Calendar.DAY_OF_MONTH, 1)
+        }
+        val nextMonthStart = (monthStart.clone() as Calendar).apply {
+            add(Calendar.MONTH, 1)
+        }
         val todayExpenses = expenses.filter {
             it.date >= today.timeInMillis && it.date < nextDay.timeInMillis
         }
+        val monthTotal = expenses.asSequence()
+            .filter { it.date >= monthStart.timeInMillis && it.date < nextMonthStart.timeInMillis }
+            .sumOf(Expense::amount)
         val categoryTotals = todayExpenses
             .groupBy(Expense::category)
             .map { (category, categoryExpenses) ->
@@ -54,17 +60,19 @@ object ExpenseStatistics {
 
         return HomeExpenseSummary(
             todayTotal = todayExpenses.sumOf(Expense::amount),
-            categories = categoryTotals
+            categories = categoryTotals,
+            monthTotal = monthTotal
         )
     }
 
     fun chart(
         expenses: List<Expense>,
         period: AnalyticsPeriod,
-        now: Long = System.currentTimeMillis()
+        now: Long = System.currentTimeMillis(),
+        locale: Locale = Locale.getDefault()
     ): ExpenseChartData {
         val categories = expenses.map(Expense::category).distinct().sorted()
-        val buckets = createBuckets(period, now)
+        val buckets = createBuckets(period, now, locale)
         val amounts = buckets.map { bucket ->
             categories.map { category ->
                 expenses.asSequence()
@@ -85,7 +93,11 @@ object ExpenseStatistics {
         )
     }
 
-    private fun createBuckets(period: AnalyticsPeriod, now: Long): List<ExpenseChartBucket> {
+    private fun createBuckets(
+        period: AnalyticsPeriod,
+        now: Long,
+        locale: Locale
+    ): List<ExpenseChartBucket> {
         val today = Calendar.getInstance().apply {
             timeInMillis = now
             clearTime()
@@ -98,7 +110,7 @@ object ExpenseStatistics {
                 }
                 val end = (start.clone() as Calendar).apply { add(Calendar.DAY_OF_YEAR, 1) }
                 ExpenseChartBucket(
-                    label = SimpleDateFormat("EE", Locale("ru", "RU")).format(start.time),
+                    label = SimpleDateFormat("EE", locale).format(start.time),
                     start = start.timeInMillis,
                     end = end.timeInMillis
                 )
@@ -110,7 +122,7 @@ object ExpenseStatistics {
                 }
                 val end = (start.clone() as Calendar).apply { add(Calendar.DAY_OF_YEAR, 7) }
                 ExpenseChartBucket(
-                    label = SimpleDateFormat("dd.MM", Locale("ru", "RU")).format(start.time),
+                    label = SimpleDateFormat("dd.MM", locale).format(start.time),
                     start = start.timeInMillis,
                     end = end.timeInMillis
                 )
@@ -123,7 +135,7 @@ object ExpenseStatistics {
                 }
                 val end = (start.clone() as Calendar).apply { add(Calendar.MONTH, 1) }
                 ExpenseChartBucket(
-                    label = SimpleDateFormat("MMM", Locale("ru", "RU")).format(start.time),
+                    label = SimpleDateFormat("MMM", locale).format(start.time),
                     start = start.timeInMillis,
                     end = end.timeInMillis
                 )

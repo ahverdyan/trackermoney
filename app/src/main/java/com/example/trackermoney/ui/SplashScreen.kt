@@ -13,13 +13,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.colorResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-
-private val Accent = Color(0xFF6275ED)
-private val Muted = Color(0xFF737887)
+import com.example.trackermoney.R
 
 @Composable
 fun SplashScreen(onFinished: () -> Unit) {
@@ -37,6 +36,8 @@ fun SplashScreen(onFinished: () -> Unit) {
         animationSpec = tween(durationMillis = 600),
         label = "splashScale"
     )
+    val accent = colorResource(R.color.brand_accent)
+    val muted = colorResource(R.color.brand_muted)
 
     //время показа
     LaunchedEffect(Unit) {
@@ -48,7 +49,7 @@ fun SplashScreen(onFinished: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White),
+            .background(MaterialTheme.colorScheme.background),
         contentAlignment = Alignment.Center
     ) {
         //логотип + текст
@@ -61,38 +62,38 @@ fun SplashScreen(onFinished: () -> Unit) {
             Box(
                 modifier = Modifier
                     .size(96.dp)
-                    .background(Accent, CircleShape),
+                .background(accent, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     "₽",
                     fontSize = 44.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color.White
+                    color = MaterialTheme.colorScheme.onPrimary
                 )
             }
 
             Spacer(Modifier.height(20.dp))
 
             Text(
-                "Трекер расходов",
+                stringResource(R.string.home_title),
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF171923)
+                color = MaterialTheme.colorScheme.onBackground
             )
 
             Spacer(Modifier.height(6.dp))
 
             Text(
-                "Сэкономил — заработал",
-                color = Muted,
+                stringResource(R.string.splash_slogan),
+                color = muted,
                 fontSize = 14.sp
             )
 
             Spacer(Modifier.height(40.dp))
 
             CircularProgressIndicator(
-                color = Accent,
+                color = accent,
                 strokeWidth = 3.dp,
                 modifier = Modifier.size(28.dp)
             )

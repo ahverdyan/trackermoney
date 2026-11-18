@@ -23,11 +23,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.example.trackermoney.R
 
 @Composable
 fun LoginScreen(
@@ -49,7 +51,7 @@ fun LoginScreen(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = "Вход",
+            text = stringResource(R.string.login_title),
             style = MaterialTheme.typography.headlineMedium,
             modifier = Modifier.fillMaxWidth(),
             textAlign = TextAlign.Center
@@ -58,7 +60,7 @@ fun LoginScreen(
         Spacer(Modifier.height(8.dp))
 
         Text(
-            text = "Ура, мы тебя заждались!",
+            text = stringResource(R.string.login_greeting),
             modifier = Modifier.fillMaxWidth(),
             textAlign = TextAlign.Center
         )
@@ -69,7 +71,7 @@ fun LoginScreen(
             value = email,
             onValueChange = { email = it },
             modifier = Modifier.fillMaxWidth(),
-            label = { Text("Электронная почта") },
+            label = { Text(stringResource(R.string.email)) },
             singleLine = true,
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.Email
@@ -82,7 +84,7 @@ fun LoginScreen(
             value = password,
             onValueChange = { password = it },
             modifier = Modifier.fillMaxWidth(),
-            label = { Text("Пароль") },
+            label = { Text(stringResource(R.string.password)) },
             singleLine = true,
             visualTransformation = if (isPasswordVisible) {
                 VisualTransformation.None
@@ -91,7 +93,7 @@ fun LoginScreen(
             },
             trailingIcon = {
                 TextButton(onClick = { isPasswordVisible = !isPasswordVisible }) {
-                    Text(if (isPasswordVisible) "Скрыть" else "Показать")
+                    Text(stringResource(if (isPasswordVisible) R.string.password_hide else R.string.password_show))
                 }
             },
             keyboardOptions = KeyboardOptions(
@@ -111,7 +113,7 @@ fun LoginScreen(
                     normalizedEmail.isBlank() || password.isBlank() -> {
                         Toast.makeText(
                             context,
-                            "Заполните все поля",
+                            context.getString(R.string.validation_fill_all),
                             Toast.LENGTH_SHORT
                         ).show()
                     }
@@ -119,7 +121,7 @@ fun LoginScreen(
                     !Patterns.EMAIL_ADDRESS.matcher(normalizedEmail).matches() -> {
                         Toast.makeText(
                             context,
-                            "Введите корректный email",
+                            context.getString(R.string.validation_email),
                             Toast.LENGTH_SHORT
                         ).show()
                     }
@@ -132,7 +134,7 @@ fun LoginScreen(
             modifier = Modifier.fillMaxWidth(),
             enabled = !isLoading
         ) {
-            Text(if (isLoading) "Входим..." else "Войти")
+            Text(stringResource(if (isLoading) R.string.login_progress else R.string.login_action))
         }
 
         Spacer(Modifier.height(8.dp))
@@ -141,7 +143,7 @@ fun LoginScreen(
             onClick = onNavigateToRegister,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Нет аккаунта? Зарегистрироваться")
+            Text(stringResource(R.string.login_register_link))
         }
     }
 }

@@ -1,6 +1,9 @@
 package com.example.trackermoney.viewmodel
 
 import android.app.Application
+import android.content.res.Configuration
+import androidx.annotation.StringRes
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.trackermoney.data.SupabaseRepository
@@ -10,7 +13,9 @@ import com.example.trackermoney.domain.ExpenseChartData
 import com.example.trackermoney.domain.ExpenseStatistics
 import com.example.trackermoney.domain.HomeExpenseSummary
 import com.example.trackermoney.model.Expense
+import com.example.trackermoney.R
 import java.util.Calendar
+import java.util.Locale
 import java.util.UUID
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
@@ -27,6 +32,7 @@ data class TrackerUiState(
     val homeSummary: HomeExpenseSummary = HomeExpenseSummary(),
     val analyticsPeriod: AnalyticsPeriod = AnalyticsPeriod.WEEK,
     val analyticsData: ExpenseChartData = ExpenseChartData(),
+    val monthlyBudget: Double = 0.0,
     val isDarkTheme: Boolean = false,
     val expenseBeingEdited: Expense? = null,
     val isLoading: Boolean = true,
@@ -51,8 +57,13 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
             if (cloudRepository.hasActiveSession()) {
                 try {
                     val expenses = loadExpensesWithLegacyMigration()
+                    val monthlyBudget = loadMonthlyBudgetOrDefault()
                     _uiState.update {
-                        it.withExpenses(expenses).copy(currentScreen = "home", isLoading = false)
+                        it.withExpenses(expenses).copy(
+                            currentScreen = "home",
+                            isLoading = false,
+                            monthlyBudget = monthlyBudget
+                        )
                     }
                 } catch (error: Exception) {
                     _uiState.update {
@@ -102,12 +113,14 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
 
             try {
                 val expenses = loadExpensesWithLegacyMigration()
-                messageChannel.trySend("Вход выполнен успешно!")
+                val monthlyBudget = loadMonthlyBudgetOrDefault()
+                messageChannel.trySend(localizedString(R.string.auth_success))
                 _uiState.update {
                     it.copy(
                         currentScreen = "home",
                         isLoading = false,
-                        loadError = null
+                        loadError = null,
+                        monthlyBudget = monthlyBudget
                     ).withExpenses(expenses)
                 }
             } catch (error: Exception) {
@@ -127,7 +140,7 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
             setLoading(true)
             try {
                 cloudRepository.register(email, password)
-                messageChannel.trySend("Регистрация прошла успешно! Проверьте почту, если придёт письмо подтверждения.")
+                messageChannel.trySend(localizedString(R.string.register_success))
                 _uiState.update { it.copy(currentScreen = "login", isLoading = false) }
             } catch (error: Exception) {
                 messageChannel.trySend(authErrorMessage(error, isRegistration = true))
@@ -139,11 +152,11 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
     fun saveExpense(amount: Double, category: String, note: String, selectedDateMillis: Long) {
         viewModelScope.launch {
             if (!amount.isFinite() || amount <= 0.0) {
-                messageChannel.trySend("Сумма расхода должна быть больше нуля.")
+                messageChannel.trySend(localizedString(R.string.expense_amount_positive))
                 return@launch
             }
             if (category.isBlank()) {
-                messageChannel.trySend("Выберите категорию расхода.")
+                messageChannel.trySend(localizedString(R.string.expense_category_required))
                 return@launch
             }
 
@@ -188,7 +201,10 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
                 _uiState.update { it.withExpenses(updatedExpenses) }
             } catch (error: Exception) {
                 messageChannel.trySend(
-                    "Расход сохранён, но список не обновился. ${expenseSaveError(error)}"
+                    localizedString(
+                        R.string.expense_saved_refresh_failed,
+                        expenseSaveError(error)
+                    )
                 )
             }
         }
@@ -206,7 +222,7 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
                     state.withExpenses(state.expenses.filterNot { it.id == expense.id })
                 }
             } catch (_: Exception) {
-                messageChannel.trySend("Не удалось удалить расход")
+                messageChannel.trySend(localizedString(R.string.expense_delete_failed))
             }
         }
     }
@@ -220,11 +236,13 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
             setLoading(true)
             try {
                 val expenses = loadExpensesWithLegacyMigration()
+                val monthlyBudget = loadMonthlyBudgetOrDefault()
                 _uiState.update {
                     it.copy(
                         currentScreen = "home",
                         isLoading = false,
-                        loadError = null
+                        loadError = null,
+                        monthlyBudget = monthlyBudget
                     ).withExpenses(expenses)
                 }
             } catch (error: Exception) {
@@ -244,6 +262,25 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch { preferencesRepository.saveDarkTheme(isDarkTheme) }
     }
 
+    fun saveMonthlyBudget(amount: Double) {
+        if (!amount.isFinite() || amount < 0.0) {
+            messageChannel.trySend(localizedString(R.string.budget_invalid))
+            return
+        }
+
+        viewModelScope.launch {
+            try {
+                cloudRepository.saveMonthlyBudget(amount)
+                _uiState.update { it.copy(monthlyBudget = amount) }
+                messageChannel.trySend(localizedString(R.string.budget_saved))
+            } catch (error: Exception) {
+                messageChannel.trySend(
+                    localizedString(R.string.budget_save_failed)
+                )
+            }
+        }
+    }
+
     fun logout() {
         viewModelScope.launch {
             try {
@@ -253,7 +290,7 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
                         .withExpenses(emptyList())
                 }
             } catch (_: Exception) {
-                messageChannel.trySend("Не удалось выйти из аккаунта")
+                messageChannel.trySend(localizedString(R.string.logout_failed))
             }
         }
     }
@@ -270,9 +307,9 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
                         isLoading = false
                     ).withExpenses(emptyList())
                 }
-                messageChannel.trySend("Расходы удалены. Вы остались в аккаунте.")
+                messageChannel.trySend(localizedString(R.string.reset_success))
             } catch (_: Exception) {
-                messageChannel.trySend("Не удалось сбросить данные")
+                messageChannel.trySend(localizedString(R.string.reset_failed))
                 setLoading(false)
             }
         }
@@ -280,6 +317,33 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
 
     private fun setLoading(isLoading: Boolean) {
         _uiState.update { it.copy(isLoading = isLoading) }
+    }
+
+    fun refreshLocalizedData() {
+        _uiState.update { it.refreshAnalytics() }
+    }
+
+    private fun currentAppLocale(): Locale =
+        AppCompatDelegate.getApplicationLocales().get(0) ?: Locale.getDefault()
+
+    private fun localizedString(@StringRes resourceId: Int, vararg arguments: Any): String {
+        val application = getApplication<Application>()
+        val locale = AppCompatDelegate.getApplicationLocales().get(0)
+            ?: return application.getString(resourceId, *arguments)
+        val configuration = Configuration(application.resources.configuration).apply {
+            setLocale(locale)
+        }
+        return application.createConfigurationContext(configuration)
+            .getString(resourceId, *arguments)
+    }
+
+    private suspend fun loadMonthlyBudgetOrDefault(): Double = try {
+        cloudRepository.loadMonthlyBudget()
+    } catch (_: Exception) {
+        messageChannel.trySend(
+            localizedString(R.string.budget_load_failed)
+        )
+        0.0
     }
 
     private fun TrackerUiState.withExpenses(
@@ -291,7 +355,12 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
             compareByDescending<Expense> { it.date }.thenByDescending { it.id }
         ),
         homeSummary = ExpenseStatistics.homeSummary(newExpenses, now),
-        analyticsData = ExpenseStatistics.chart(newExpenses, analyticsPeriod, now)
+        analyticsData = ExpenseStatistics.chart(
+            newExpenses,
+            analyticsPeriod,
+            now,
+            currentAppLocale()
+        )
     )
 
     private fun TrackerUiState.refreshExpenseSummaries(
@@ -301,7 +370,12 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
     private fun TrackerUiState.refreshAnalytics(
         now: Long = System.currentTimeMillis()
     ): TrackerUiState = copy(
-        analyticsData = ExpenseStatistics.chart(expenses, analyticsPeriod, now)
+        analyticsData = ExpenseStatistics.chart(
+            expenses,
+            analyticsPeriod,
+            now,
+            currentAppLocale()
+        )
     )
 
     private fun authErrorMessage(error: Exception, isRegistration: Boolean = false): String {
@@ -310,13 +384,13 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
 
         return when {
             normalized.contains("email not confirmed") || normalized.contains("email_not_confirmed") ->
-                "Подтвердите email по ссылке из письма, затем попробуйте войти."
+                localizedString(R.string.auth_email_unconfirmed)
             normalized.contains("invalid login credentials") ->
-                "Неверный email или пароль. Если аккаунт новый, сначала подтвердите email в письме."
+                localizedString(R.string.auth_invalid_credentials)
             normalized.contains("already registered") || normalized.contains("user already exists") ->
-                "Этот email уже зарегистрирован. Попробуйте войти."
-            isRegistration -> "Не удалось зарегистрироваться. Подробности: $details"
-            else -> "Не удалось выполнить вход. Подробности: $details"
+                localizedString(R.string.auth_already_registered)
+            isRegistration -> localizedString(R.string.auth_register_failed, details)
+            else -> localizedString(R.string.auth_login_failed, details)
         }
     }
 
@@ -327,7 +401,10 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
             ?.trim()
             ?.takeIf(String::isNotBlank)
             ?.take(160)
-            ?: "Причина не указана (${error::class.simpleName ?: "ошибка"})."
+            ?: localizedString(
+                R.string.error_reason_unknown,
+                error::class.simpleName ?: localizedString(R.string.error_fallback)
+            )
 
     private fun expenseLoadError(error: Exception): String {
         val details = errorDetails(error)
@@ -336,17 +413,17 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
         val guidance = when {
             normalized.contains("schema cache") || normalized.contains("does not exist") ||
                 normalized.contains("not found") ->
-                "Supabase не находит таблицу public.expenses. Проверьте, что SQL-миграция расходов выполнена в SQL Editor."
+                localizedString(R.string.expense_load_schema_help)
             normalized.contains("permission") || normalized.contains("row-level security") ||
                 normalized.contains("401") || normalized.contains("403") ->
-                "Supabase отказал в доступе. Проверьте RLS-политики таблицы expenses и активную сессию пользователя."
+                localizedString(R.string.expense_load_permission_help)
             normalized.contains("timeout") || normalized.contains("connect") ||
                 normalized.contains("host") || normalized.contains("network") ->
-                "Нет соединения с Supabase. Проверьте интернет и URL проекта."
+                localizedString(R.string.expense_load_network_help)
             else -> ""
         }
 
-        return listOf(guidance, "Техническая причина: $details")
+        return listOf(guidance, localizedString(R.string.technical_reason, details))
             .filter(String::isNotBlank)
             .joinToString("\n\n")
     }
@@ -359,17 +436,17 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
             normalized.contains("unknownhost") || normalized.contains("unable to resolve host") ||
                 normalized.contains("failed to connect") || normalized.contains("timeout") ||
                 normalized.contains("network is unreachable") ->
-                "Телефон не смог подключиться к Supabase. Проверьте сеть; если API недоступен из вашей сети, попробуйте VPN или другой интернет."
+                localizedString(R.string.expense_save_network_help)
             normalized.contains("permission denied") || normalized.contains("row-level security") ||
                 normalized.contains("42501") || normalized.contains("401") || normalized.contains("403") ->
-                "Supabase отклонил запись. Проверьте, что пользователь вошёл в аккаунт и INSERT-политика RLS разрешает добавление расходов."
+                localizedString(R.string.expense_save_permission_help)
             normalized.contains("schema cache") || normalized.contains("column") ||
                 normalized.contains("does not exist") || normalized.contains("not-null") ->
-                "Схема таблицы expenses не совпадает с приложением. Проверьте SQL-миграцию и имена колонок."
+                localizedString(R.string.expense_save_schema_help)
             else -> ""
         }
 
-        return listOf(cause, "Техническая причина: $details")
+        return listOf(cause, localizedString(R.string.technical_reason, details))
             .filter(String::isNotBlank)
             .joinToString("\n\n")
     }

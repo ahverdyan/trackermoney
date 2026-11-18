@@ -1,8 +1,9 @@
 package com.example.trackermoney
 
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -17,8 +18,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.colorResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -29,13 +31,13 @@ import com.example.trackermoney.ui.LoginScreen
 import com.example.trackermoney.ui.RegisterScreen
 import com.example.trackermoney.ui.SettingsScreen
 import com.example.trackermoney.ui.SplashScreen
+import com.example.trackermoney.ui.TrackerMoneyTheme
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.trackermoney.viewmodel.TrackerViewModel
+import androidx.core.os.LocaleListCompat
+import com.example.trackermoney.R
 
-private val Accent = Color(0xFF6275ED)
-private val Muted = Color(0xFF737887)
-
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -44,6 +46,12 @@ class MainActivity : ComponentActivity() {
             val trackerViewModel: TrackerViewModel = viewModel()
             val uiState by trackerViewModel.uiState.collectAsState()
             val snackbarHostState = remember { SnackbarHostState() }
+            val currentLanguage = AppCompatDelegate.getApplicationLocales()
+                .get(0)?.language ?: resources.configuration.locales[0].language
+
+            LaunchedEffect(currentLanguage) {
+                trackerViewModel.refreshLocalizedData()
+            }
 
             LaunchedEffect(trackerViewModel) {
                 trackerViewModel.messages.collect { message ->
@@ -55,13 +63,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            MaterialTheme(
-                colorScheme = if (uiState.isDarkTheme) {
-                    darkColorScheme()
-                } else {
-                    lightColorScheme()
-                }
-            ) {
+            TrackerMoneyTheme(isDarkTheme = uiState.isDarkTheme) {
                 Scaffold(
                     containerColor = MaterialTheme.colorScheme.background,
                     snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -111,6 +113,7 @@ class MainActivity : ComponentActivity() {
 
                             "home" -> HomeScreen(
                                 summary = uiState.homeSummary,
+                                monthlyBudget = uiState.monthlyBudget,
                                 onAddExpense = {
                                     trackerViewModel.navigateTo("add")
                                 }
@@ -133,6 +136,14 @@ class MainActivity : ComponentActivity() {
                             "profile" -> SettingsScreen(
                                 isDarkTheme = uiState.isDarkTheme,
                                 onThemeChange = trackerViewModel::changeTheme,
+                                currentLanguage = currentLanguage,
+                                onLanguageChange = { languageTag ->
+                                    AppCompatDelegate.setApplicationLocales(
+                                        LocaleListCompat.forLanguageTags(languageTag)
+                                    )
+                                },
+                                monthlyBudget = uiState.monthlyBudget,
+                                onSaveMonthlyBudget = trackerViewModel::saveMonthlyBudget,
                                 onLogout = trackerViewModel::logout,
                                 onResetProgress = trackerViewModel::resetProgress
                             )
@@ -149,7 +160,7 @@ class MainActivity : ComponentActivity() {
                                 verticalArrangement = Arrangement.Center
                             ) {
                                 Text(
-                                    text = "Не удалось загрузить расходы",
+                                    text = stringResource(R.string.load_error_title),
                                     style = MaterialTheme.typography.headlineSmall
                                 )
                                 Spacer(Modifier.height(12.dp))
@@ -163,13 +174,17 @@ class MainActivity : ComponentActivity() {
                                     onClick = trackerViewModel::retryLoadingExpenses,
                                     enabled = !uiState.isLoading
                                 ) {
-                                    Text(if (uiState.isLoading) "Загрузка..." else "Попробовать снова")
+                                    Text(
+                                        stringResource(
+                                            if (uiState.isLoading) R.string.loading else R.string.retry
+                                        )
+                                    )
                                 }
                                 TextButton(onClick = trackerViewModel::logout) {
-                                    Text("Выйти из аккаунта")
+                                    Text(stringResource(R.string.settings_logout))
                                 }
                             }
-                            else -> PlaceholderScreen(title = "Аналитика")
+                            else -> PlaceholderScreen(title = stringResource(R.string.nav_analytics))
                         }
                     }
                 }
@@ -199,14 +214,14 @@ private fun BottomNavigation(
         ) {
             NavigationItem(
                 icon = Icons.Outlined.Home,
-                label = "Главная",
+                label = stringResource(R.string.nav_home),
                 selected = currentScreen == "home",
                 onClick = { onNavigate("home") }
             )
 
             NavigationItem(
                 icon = Icons.Outlined.PieChart,
-                label = "Аналитика",
+                label = stringResource(R.string.nav_analytics),
                 selected = currentScreen == "analytics",
                 onClick = { onNavigate("analytics") }
             )
@@ -215,28 +230,28 @@ private fun BottomNavigation(
                 modifier = Modifier
                     .padding(bottom = 16.dp)
                     .size(50.dp)
-                    .background(Accent, CircleShape)
+                    .background(colorResource(R.color.brand_accent), CircleShape)
                     .clickable { onAdd() },
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Filled.Add,
-                    contentDescription = "Добавить расход",
-                    tint = Color.White,
+                    contentDescription = stringResource(R.string.nav_add_expense),
+                    tint = MaterialTheme.colorScheme.onPrimary,
                     modifier = Modifier.size(38.dp)
                 )
             }
 
             NavigationItem(
                 icon = Icons.Outlined.History,
-                label = "История",
+                label = stringResource(R.string.nav_history),
                 selected = currentScreen == "history",
                 onClick = { onNavigate("history") }
             )
 
             NavigationItem(
                 icon = Icons.Outlined.Person,
-                label = "Настройки",
+                label = stringResource(R.string.nav_settings),
                 selected = currentScreen == "profile",
                 onClick = { onNavigate("profile") }
             )
@@ -251,10 +266,12 @@ private fun NavigationItem(
     selected: Boolean,
     onClick: () -> Unit
 ) {
+    val accent = colorResource(R.color.brand_accent)
+    val muted = colorResource(R.color.brand_muted)
     val color = if (selected) {
-        Accent
+        accent
     } else {
-        Muted
+        muted
     }
 
     Column(
@@ -306,7 +323,7 @@ private fun PlaceholderScreen(title: String) {
             Spacer(Modifier.height(8.dp))
 
             Text(
-                text = "Этот раздел добавим позже",
+                text = stringResource(R.string.placeholder_later),
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }

@@ -14,8 +14,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.colorResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -23,27 +25,28 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.text.SimpleDateFormat
 import java.util.Date
-import java.util.Locale
+import com.example.trackermoney.R
 import com.example.trackermoney.model.Expense
 
 private data class ExpenseCategory(
-    val name: String,
+    val storageName: String,
+    val labelRes: Int,
     val emoji: String,
-    val color: Color
+    val colorRes: Int
 )
 
 private val addCategories = listOf(
-    ExpenseCategory("Продукты", "🍎", Color(0xFFF59E0B)),
-    ExpenseCategory("Транспорт", "🚌", Color(0xFF10B981)),
-    ExpenseCategory("Покупки", "🛍️", Color(0xFF3B82F6)),
-    ExpenseCategory("Развлечения", "🎬", Color(0xFF8B5CF6)),
-    ExpenseCategory("Жильё", "🏠", Color(0xFFEF4444)),
-    ExpenseCategory("Здоровье", "💊", Color(0xFF06B6D4)),
-    ExpenseCategory("Подписки", "📱", Color(0xFFEC4899)),
-    ExpenseCategory("Топливо", "⛽", Color(0xFF64748B)),
-    ExpenseCategory("Красота", "💅", Color(0xFFEC4899)),
-    ExpenseCategory("Путешествия", "✈️", Color(0xFF3B82F6)),
-    ExpenseCategory("Образование", "📚", Color(0xFF8B5CF6))
+    ExpenseCategory("Продукты", R.string.category_food, "🍎", R.color.category_food),
+    ExpenseCategory("Транспорт", R.string.category_transport, "🚌", R.color.category_transport),
+    ExpenseCategory("Покупки", R.string.category_shopping, "🛍️", R.color.category_shopping),
+    ExpenseCategory("Развлечения", R.string.category_entertainment, "🎬", R.color.category_entertainment),
+    ExpenseCategory("Жильё", R.string.category_housing, "🏠", R.color.category_housing),
+    ExpenseCategory("Здоровье", R.string.category_health, "💊", R.color.category_health),
+    ExpenseCategory("Подписки", R.string.category_subscriptions, "📱", R.color.category_subscriptions),
+    ExpenseCategory("Топливо", R.string.category_fuel, "⛽", R.color.category_fuel),
+    ExpenseCategory("Красота", R.string.category_beauty, "💅", R.color.category_beauty),
+    ExpenseCategory("Путешествия", R.string.category_travel, "✈️", R.color.category_travel),
+    ExpenseCategory("Образование", R.string.category_education, "📚", R.color.category_education)
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -69,7 +72,8 @@ fun AddExpenseScreen(
     // Определяем активную тему по цвету фона, чтобы учитывать и ручное переключение в настройках.
     val isDarkTheme = colors.background.luminance() < 0.5f
 
-    val dateFormatter = remember { SimpleDateFormat("d MMMM yyyy", Locale("ru", "RU")) }
+    val currentLocale = LocalConfiguration.current.locales[0]
+    val dateFormatter = remember(currentLocale) { SimpleDateFormat("d MMMM yyyy", currentLocale) }
 
     // диалог календаря
     if (showDatePicker) {
@@ -87,11 +91,11 @@ fun AddExpenseScreen(
                         }
                         showDatePicker = false
                     }
-                ) { Text("ОК") }
+                ) { Text(stringResource(R.string.ok)) }
             },
             dismissButton = {
                 TextButton(onClick = { showDatePicker = false }) {
-                    Text("Отмена")
+                    Text(stringResource(R.string.cancel))
                 }
             }
         ) {
@@ -103,7 +107,9 @@ fun AddExpenseScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(if (isDarkTheme) colors.background else Color.White)
+            .background(
+                if (isDarkTheme) colors.background else colorResource(R.color.brand_white)
+            )
             .padding(horizontal = 20.dp)
     ) {
         // заголовок
@@ -122,7 +128,7 @@ fun AddExpenseScreen(
                     .padding(end = 22.dp)
             )
             Text(
-                if (expenseToEdit == null) "Добавить расход" else "Изменить расход",
+                stringResource(if (expenseToEdit == null) R.string.expense_add_title else R.string.expense_edit_title),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold
             )
@@ -140,19 +146,19 @@ fun AddExpenseScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(
-                        if (isDarkTheme) colors.surfaceVariant else Color(0xFFF5F4FF),
+                        if (isDarkTheme) colors.surfaceVariant else colorResource(R.color.expense_panel),
                         RoundedCornerShape(22.dp)
                     )
                     .border(
                         1.dp,
-                        if (isDarkTheme) colors.outlineVariant else Color(0xFFDFDCFF),
+                        if (isDarkTheme) colors.outlineVariant else colorResource(R.color.expense_panel_border),
                         RoundedCornerShape(22.dp)
                     )
                     .padding(20.dp)
             ) {
                 Text(
-                    "Сумма",
-                    color = if (isDarkTheme) colors.onSurfaceVariant else Color(0xFF737887),
+                    stringResource(R.string.expense_amount),
+                    color = if (isDarkTheme) colors.onSurfaceVariant else colorResource(R.color.expense_label),
                     fontWeight = FontWeight.Medium
                 )
 
@@ -182,10 +188,10 @@ fun AddExpenseScreen(
                             Box {
                                 if (amount.isEmpty()) {
                                     Text(
-                                        "0,00",
+                                        stringResource(R.string.expense_amount_placeholder),
                                         fontSize = 32.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = if (isDarkTheme) colors.onSurfaceVariant else Color(0xFFB9BBC5)
+                                        color = if (isDarkTheme) colors.onSurfaceVariant else colorResource(R.color.expense_placeholder)
                                     )
                                 }
                                 innerTextField()
@@ -198,16 +204,16 @@ fun AddExpenseScreen(
             // информация
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
-                    "Информация о расходе",
+                    stringResource(R.string.expense_information),
                     fontWeight = FontWeight.SemiBold,
-                    color = if (isDarkTheme) colors.onSurfaceVariant else Color(0xFF555967)
+                    color = if (isDarkTheme) colors.onSurfaceVariant else colorResource(R.color.expense_section)
                 )
 
                 OutlinedTextField(
                     value = title,
                     onValueChange = { title = it },
                     modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("Например: Обед в кафе") },
+                    placeholder = { Text(stringResource(R.string.expense_note_hint)) },
                     shape = RoundedCornerShape(18.dp),
                     singleLine = true
                 )
@@ -216,9 +222,9 @@ fun AddExpenseScreen(
             // дата
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
-                    "Дата",
+                    stringResource(R.string.expense_date),
                     fontWeight = FontWeight.SemiBold,
-                    color = if (isDarkTheme) colors.onSurfaceVariant else Color(0xFF555967)
+                    color = if (isDarkTheme) colors.onSurfaceVariant else colorResource(R.color.expense_section)
                 )
 
                 Surface(
@@ -228,9 +234,9 @@ fun AddExpenseScreen(
                     shape = RoundedCornerShape(18.dp),
                     border = androidx.compose.foundation.BorderStroke(
                         1.dp,
-                        if (isDarkTheme) colors.outlineVariant else Color(0xFFE1E2E8)
+                        if (isDarkTheme) colors.outlineVariant else colorResource(R.color.expense_date_border)
                     ),
-                    color = if (isDarkTheme) colors.surface else Color.White
+                    color = if (isDarkTheme) colors.surface else colorResource(R.color.brand_white)
                 ) {
                     Row(
                         modifier = Modifier.padding(18.dp),
@@ -252,9 +258,9 @@ fun AddExpenseScreen(
             // категории
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
-                    "Категория",
+                    stringResource(R.string.expense_category),
                     fontWeight = FontWeight.SemiBold,
-                    color = if (isDarkTheme) colors.onSurfaceVariant else Color(0xFF555967)
+                    color = if (isDarkTheme) colors.onSurfaceVariant else colorResource(R.color.expense_section)
                 )
 
                 addCategories.chunked(3).forEach { rowCategories ->
@@ -263,7 +269,8 @@ fun AddExpenseScreen(
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         rowCategories.forEach { category ->
-                            val selected = selectedCategory == category.name
+                            val selected = selectedCategory == category.storageName
+                            val categoryColor = colorResource(category.colorRes)
 
                             Column(
                                 modifier = Modifier
@@ -271,20 +278,20 @@ fun AddExpenseScreen(
                                     .height(112.dp)
                                     .border(
                                         width = if (selected) 2.dp else 1.dp,
-                                        color = if (selected) Color(0xFF6275ED)
-                                        else if (isDarkTheme) colors.outlineVariant else Color(0xFFD8DAE1),
+                                        color = if (selected) colorResource(R.color.brand_accent)
+                                        else if (isDarkTheme) colors.outlineVariant else colorResource(R.color.expense_tile_border),
                                         shape = RoundedCornerShape(18.dp)
                                     )
                                     .background(
                                         when {
                                             selected && isDarkTheme -> colors.primaryContainer
-                                            selected -> Color(0xFFF2F1FF)
+                                            selected -> colorResource(R.color.expense_tile_selected)
                                             isDarkTheme -> colors.surface
-                                            else -> Color.White
+                                            else -> colorResource(R.color.brand_white)
                                         },
                                         RoundedCornerShape(18.dp)
                                     )
-                                    .clickable { selectedCategory = category.name }
+                                    .clickable { selectedCategory = category.storageName }
                                     .padding(8.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.Center
@@ -293,23 +300,23 @@ fun AddExpenseScreen(
                                     modifier = Modifier
                                         .size(42.dp)
                                         .background(
-                                            category.color.copy(alpha = 0.14f),
+                                            categoryColor.copy(alpha = 0.14f),
                                             CircleShape
                                         ),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Text(category.emoji, fontSize = 21.sp)
+                                    Text(category.emoji, fontSize = 21.sp, color = categoryColor)
                                 }
 
                                 Spacer(Modifier.height(8.dp))
 
                                 Text(
-                                    category.name,
+                                    stringResource(category.labelRes),
                                     fontSize = 12.sp,
                                     fontWeight = if (selected) FontWeight.Bold
                                     else FontWeight.Normal,
                                     color = if (selected && isDarkTheme) colors.onPrimaryContainer
-                                    else if (isDarkTheme) colors.onSurface else Color(0xFF292C38),
+                                    else if (isDarkTheme) colors.onSurface else colorResource(R.color.expense_tile_text),
                                     maxLines = 1
                                 )
                             }
@@ -344,11 +351,11 @@ fun AddExpenseScreen(
                 .height(62.dp),
             shape = RoundedCornerShape(20.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFF6860F5)
+                containerColor = colorResource(R.color.brand_button)
             )
         ) {
             Text(
-                if (expenseToEdit == null) "Сохранить" else "Сохранить изменения",
+                stringResource(if (expenseToEdit == null) R.string.expense_save else R.string.expense_save_changes),
                 fontSize = 18.sp,
                 fontWeight = FontWeight.SemiBold
             )
