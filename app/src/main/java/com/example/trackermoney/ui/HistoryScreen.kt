@@ -22,6 +22,9 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.example.trackermoney.model.Expense
 import com.example.trackermoney.R
 import java.text.SimpleDateFormat
@@ -95,120 +98,20 @@ fun HistoryScreen(
                 }
             }
         } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-                contentPadding = PaddingValues(bottom = 20.dp)
-            ) {
-                items(sortedExpenses) { expense ->
-                    var showActions by remember(expense.id) { mutableStateOf(false) }
-                    val expenseTitle = if (expense.note.isBlank()) {
-                        localizedCategoryName(expense.category)
-                    } else {
-                        expense.note
+            AndroidView(
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+                factory = { context ->
+                    RecyclerView(context).apply {
+                        layoutManager = LinearLayoutManager(context)
+                        adapter = ExpenseRecyclerAdapter(onEdit, onDelete).also { it.submitList(sortedExpenses) }
+                        clipToPadding = false
+                        setPadding(0, 0, 0, 20)
                     }
-                    Card(
-                        modifier = Modifier.fillMaxWidth().combinedClickable(
-                            onClick = { showActions = true },
-                            onLongClick = { showActions = true }
-                        ),
-                        shape = RoundedCornerShape(18.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surface
-                        )
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(48.dp)
-                                    .background(
-                                        historyAccent.copy(alpha = 0.12f),
-                                        RoundedCornerShape(14.dp)
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = categoryIcon(expense.category),
-                                    color = historyAccent,
-                                    fontSize = 21.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-
-                            Spacer(Modifier.width(12.dp))
-
-                            Column(
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Text(
-                                    text = expenseTitle,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    fontSize = 15.sp
-                                )
-
-                                Spacer(Modifier.height(4.dp))
-
-                                Text(
-                                    text = localizedCategoryName(expense.category),
-                                    color = historyAccent,
-                                    fontSize = 13.sp
-                                )
-
-                                val timeFormat = SimpleDateFormat("HH:mm", currentLocale)
-                                val dateFormat = SimpleDateFormat("dd.MM.yyyy", currentLocale)
-                                val calendar = java.util.Calendar.getInstance().apply {
-                                    timeInMillis = expense.date
-                                }
-                                val hasSavedTime = calendar.get(java.util.Calendar.HOUR_OF_DAY) != 0 ||
-                                        calendar.get(java.util.Calendar.MINUTE) != 0 ||
-                                        calendar.get(java.util.Calendar.SECOND) != 0
-                                Text(
-                                    text = if (hasSavedTime) {
-                                        "${dateFormat.format(Date(expense.date))}, ${timeFormat.format(Date(expense.date))}"
-                                    } else {
-                                        dateFormat.format(Date(expense.date))
-                                    },
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    fontSize = 12.sp
-                                )
-                            }
-
-                            Spacer(Modifier.width(8.dp))
-
-                            Text(
-                                text = String.format(
-                                    currentLocale,
-                                    "-%,.2f ₽",
-                                    expense.amount
-                                ),
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                fontSize = 14.sp
-                            )
-
-                        }
-                        DropdownMenu(
-                            expanded = showActions,
-                            onDismissRequest = { showActions = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.edit)) },
-                                onClick = { showActions = false; onEdit(expense) }
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.delete)) },
-                                onClick = { showActions = false; onDelete(expense) }
-                            )
-                        }
-                    }
+                },
+                update = { recycler ->
+                    (recycler.adapter as? ExpenseRecyclerAdapter)?.submitList(sortedExpenses)
                 }
-            }
+            )
         }
     }
 }

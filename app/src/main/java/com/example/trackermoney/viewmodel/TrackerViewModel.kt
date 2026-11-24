@@ -7,6 +7,8 @@ import androidx.appcompat.app.AppCompatDelegate
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.trackermoney.data.SupabaseRepository
+import com.example.trackermoney.data.ExpenseEntity
+import com.example.trackermoney.data.TrackerDatabase
 import com.example.trackermoney.data.UserPreferencesRepository
 import com.example.trackermoney.domain.AnalyticsPeriod
 import com.example.trackermoney.domain.ExpenseChartData
@@ -42,6 +44,7 @@ data class TrackerUiState(
 class TrackerViewModel(application: Application) : AndroidViewModel(application) {
     private val preferencesRepository = UserPreferencesRepository(application)
     private val cloudRepository = SupabaseRepository()
+    private val expenseDao = TrackerDatabase.get(application).expenseDao()
 
     private val _uiState = MutableStateFlow(TrackerUiState())
     val uiState = _uiState.asStateFlow()
@@ -55,25 +58,13 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
             _uiState.update { it.copy(isDarkTheme = isDarkTheme) }
 
             if (cloudRepository.hasActiveSession()) {
-                try {
-                    val expenses = loadExpensesWithLegacyMigration()
-                    val monthlyBudget = loadMonthlyBudgetOrDefault()
-                    _uiState.update {
-                        it.withExpenses(expenses).copy(
-                            currentScreen = "home",
-                            isLoading = false,
-                            monthlyBudget = monthlyBudget
-                        )
-                    }
-                } catch (error: Exception) {
-                    _uiState.update {
-                        it.copy(
-                            currentScreen = "load_error",
-                            isLoading = false,
-                            loadError = expenseLoadError(error)
-                        )
-                    }
+                val userId = cloudRepository.authenticatedUserId()
+                cacheLegacyExpensesLocally(userId)
+                val cachedExpenses = expenseDao.getVisible(userId).map(ExpenseEntity::toExpense)
+                _uiState.update {
+                    it.withExpenses(cachedExpenses).copy(currentScreen = "home", isLoading = false)
                 }
+                syncExpensesFromCloud()
             } else {
                 _uiState.update { it.copy(currentScreen = "login", isLoading = false) }
             }
@@ -111,26 +102,17 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
                 return@launch
             }
 
-            try {
-                val expenses = loadExpensesWithLegacyMigration()
-                val monthlyBudget = loadMonthlyBudgetOrDefault()
-                messageChannel.trySend(localizedString(R.string.auth_success))
-                _uiState.update {
-                    it.copy(
-                        currentScreen = "home",
-                        isLoading = false,
-                        loadError = null,
-                        monthlyBudget = monthlyBudget
-                    ).withExpenses(expenses)
-                }
-            } catch (error: Exception) {
-                _uiState.update {
-                    it.copy(
-                        currentScreen = "load_error",
-                        isLoading = false,
-                        loadError = expenseLoadError(error)
-                    )
-                }
+            messageChannel.trySend(localizedString(R.string.auth_success))
+            val userId = cloudRepository.authenticatedUserId()
+            cacheLegacyExpensesLocally(userId)
+            val cachedExpenses = expenseDao.getVisible(userId).map(ExpenseEntity::toExpense)
+            _uiState.update {
+                it.copy(currentScreen = "home", isLoading = false, loadError = null)
+                    .withExpenses(cachedExpenses)
+            }
+            syncExpensesFromCloud()
+            loadMonthlyBudgetOrDefault().let { budget ->
+                _uiState.update { it.copy(monthlyBudget = budget) }
             }
         }
     }
@@ -160,7 +142,6 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
                 return@launch
             }
 
-            setLoading(true)
             val currentTime = Calendar.getInstance()
             val date = Calendar.getInstance().apply {
                 timeInMillis = selectedDateMillis
@@ -174,20 +155,9 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
             val expense = edited?.copy(amount = amount, category = category, note = note, date = date)
                 ?: Expense(amount = amount, category = category, note = note, date = date)
 
-            try {
-                if (edited == null) cloudRepository.addExpense(expense)
-                else cloudRepository.updateExpense(expense)
-            } catch (error: Exception) {
-                messageChannel.trySend(expenseSaveError(error))
-                setLoading(false)
-                return@launch
-            }
-
-            val localExpenses = if (edited == null) {
-                _uiState.value.expenses + expense
-            } else {
-                _uiState.value.expenses.map { if (it.id == expense.id) expense else it }
-            }
+            val userId = cloudRepository.authenticatedUserId()
+            expenseDao.upsert(ExpenseEntity.from(expense, userId, ExpenseEntity.UPSERT))
+            val localExpenses = expenseDao.getVisible(userId).map(ExpenseEntity::toExpense)
             _uiState.update {
                 it.withExpenses(localExpenses).copy(
                     expenseBeingEdited = null,
@@ -195,17 +165,11 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
                     isLoading = false
                 )
             }
-
             try {
-                val updatedExpenses = cloudRepository.loadExpenses()
-                _uiState.update { it.withExpenses(updatedExpenses) }
-            } catch (error: Exception) {
-                messageChannel.trySend(
-                    localizedString(
-                        R.string.expense_saved_refresh_failed,
-                        expenseSaveError(error)
-                    )
-                )
+                cloudRepository.addExpense(expense)
+                expenseDao.markSynced(expense.id, userId)
+            } catch (_: Exception) {
+                messageChannel.trySend(localizedString(R.string.expense_saved_offline))
             }
         }
     }
@@ -216,13 +180,14 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
 
     fun deleteExpense(expense: Expense) {
         viewModelScope.launch {
+            val userId = cloudRepository.authenticatedUserId()
+            expenseDao.upsert(ExpenseEntity.from(expense, userId, ExpenseEntity.DELETE))
+            _uiState.update { state -> state.withExpenses(state.expenses.filterNot { it.id == expense.id }) }
             try {
                 cloudRepository.deleteExpense(expense)
-                _uiState.update { state ->
-                    state.withExpenses(state.expenses.filterNot { it.id == expense.id })
-                }
+                expenseDao.delete(expense.id, userId)
             } catch (_: Exception) {
-                messageChannel.trySend(localizedString(R.string.expense_delete_failed))
+                messageChannel.trySend(localizedString(R.string.expense_delete_queued))
             }
         }
     }
@@ -234,26 +199,9 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
     fun retryLoadingExpenses() {
         viewModelScope.launch {
             setLoading(true)
-            try {
-                val expenses = loadExpensesWithLegacyMigration()
-                val monthlyBudget = loadMonthlyBudgetOrDefault()
-                _uiState.update {
-                    it.copy(
-                        currentScreen = "home",
-                        isLoading = false,
-                        loadError = null,
-                        monthlyBudget = monthlyBudget
-                    ).withExpenses(expenses)
-                }
-            } catch (error: Exception) {
-                _uiState.update {
-                    it.copy(
-                        currentScreen = "load_error",
-                        isLoading = false,
-                        loadError = expenseLoadError(error)
-                    )
-                }
-            }
+            val synced = syncExpensesFromCloud()
+            _uiState.update { it.copy(currentScreen = "home", isLoading = false, loadError = null) }
+            if (!synced) messageChannel.trySend(localizedString(R.string.offline_cached_data))
         }
     }
 
@@ -269,14 +217,18 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
         }
 
         viewModelScope.launch {
+            val userId = cloudRepository.authenticatedUserId()
+            expenseDao.saveMonthlyBudget(
+                com.example.trackermoney.data.MonthlyBudgetEntity(userId, amount, pendingUpload = true)
+            )
+            _uiState.update { it.copy(monthlyBudget = amount) }
             try {
                 cloudRepository.saveMonthlyBudget(amount)
+                expenseDao.markMonthlyBudgetSynced(userId)
                 _uiState.update { it.copy(monthlyBudget = amount) }
                 messageChannel.trySend(localizedString(R.string.budget_saved))
             } catch (error: Exception) {
-                messageChannel.trySend(
-                    localizedString(R.string.budget_save_failed)
-                )
+                messageChannel.trySend(localizedString(R.string.budget_saved_offline))
             }
         }
     }
@@ -297,22 +249,63 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
 
     fun resetProgress() {
         viewModelScope.launch {
-            setLoading(true)
-            try {
-                cloudRepository.deleteAllExpenses()
-                preferencesRepository.clearProgress()
-                _uiState.update {
-                    it.copy(
-                        expenseBeingEdited = null,
-                        isLoading = false
-                    ).withExpenses(emptyList())
-                }
+            val userId = cloudRepository.authenticatedUserId()
+            expenseDao.markAllForDeletion(userId)
+            expenseDao.saveMonthlyBudget(
+                com.example.trackermoney.data.MonthlyBudgetEntity(userId, 0.0, pendingUpload = true)
+            )
+            _uiState.update {
+                it.copy(expenseBeingEdited = null, monthlyBudget = 0.0).withExpenses(emptyList())
+            }
+            preferencesRepository.clearProgress()
+            if (syncExpensesFromCloud()) {
                 messageChannel.trySend(localizedString(R.string.reset_success))
-            } catch (_: Exception) {
-                messageChannel.trySend(localizedString(R.string.reset_failed))
-                setLoading(false)
+            } else {
+                messageChannel.trySend(localizedString(R.string.reset_queued_offline))
             }
         }
+    }
+
+    /** Pulls cloud changes after replaying any local writes queued while offline. */
+    private suspend fun syncExpensesFromCloud(): Boolean {
+        val userId = runCatching { cloudRepository.authenticatedUserId() }.getOrNull() ?: return false
+        return try {
+            cacheLegacyExpensesLocally(userId)
+            val pending = expenseDao.getPending(userId)
+            pending.forEach { entity ->
+                val expense = entity.toExpense()
+                if (entity.pendingOperation == ExpenseEntity.DELETE) {
+                    cloudRepository.deleteExpense(expense)
+                    expenseDao.delete(entity.id, userId)
+                } else {
+                    cloudRepository.addExpense(expense)
+                    expenseDao.markSynced(entity.id, userId)
+                }
+            }
+            val remoteExpenses = loadExpensesWithLegacyMigration()
+            expenseDao.replaceSynced(
+                userId,
+                remoteExpenses.map { ExpenseEntity.from(it, userId) }
+            )
+            val visibleExpenses = expenseDao.getVisible(userId).map(ExpenseEntity::toExpense)
+            val monthlyBudget = loadMonthlyBudgetOrDefault()
+            _uiState.update {
+                it.withExpenses(visibleExpenses).copy(
+                    currentScreen = "home",
+                    isLoading = false,
+                    loadError = null,
+                    monthlyBudget = monthlyBudget
+                )
+            }
+            true
+        } catch (_: Exception) {
+            // The Room copy remains usable offline; pending operations retry next sync/launch.
+            false
+        }
+    }
+
+    fun syncPendingExpenses() {
+        viewModelScope.launch { syncExpensesFromCloud() }
     }
 
     private fun setLoading(isLoading: Boolean) {
@@ -338,12 +331,23 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
     }
 
     private suspend fun loadMonthlyBudgetOrDefault(): Double = try {
-        cloudRepository.loadMonthlyBudget()
+        val userId = cloudRepository.authenticatedUserId()
+        val local = expenseDao.getMonthlyBudget(userId)
+        if (local?.pendingUpload == true) {
+            cloudRepository.saveMonthlyBudget(local.amount)
+            expenseDao.markMonthlyBudgetSynced(userId)
+            local.amount
+        } else {
+            cloudRepository.loadMonthlyBudget().also { amount ->
+                expenseDao.saveMonthlyBudget(
+                    com.example.trackermoney.data.MonthlyBudgetEntity(userId, amount)
+                )
+            }
+        }
     } catch (_: Exception) {
-        messageChannel.trySend(
-            localizedString(R.string.budget_load_failed)
-        )
-        0.0
+        runCatching {
+            expenseDao.getMonthlyBudget(cloudRepository.authenticatedUserId())?.amount
+        }.getOrNull() ?: 0.0
     }
 
     private fun TrackerUiState.withExpenses(
@@ -457,9 +461,7 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
         if (!preferencesRepository.hasMigratedExpensesToCloud()) {
             val existingIds = expenses.mapTo(mutableSetOf()) { it.id }
             preferencesRepository.loadExpenses().forEach { legacyExpense ->
-                val cloudId = UUID.nameUUIDFromBytes(
-                    "legacy:${legacyExpense.id}:${legacyExpense.date}".toByteArray()
-                ).toString()
+                val cloudId = legacyExpenseCloudId(legacyExpense)
                 if (cloudId !in existingIds) {
                     cloudRepository.addExpense(legacyExpense.copy(id = cloudId))
                 }
@@ -470,4 +472,21 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
 
         return expenses
     }
+
+    private suspend fun cacheLegacyExpensesLocally(userId: String) {
+        if (preferencesRepository.hasMigratedExpensesToCloud()) return
+        preferencesRepository.loadExpenses().forEach { expense ->
+            expenseDao.upsert(
+                ExpenseEntity.from(
+                    expense.copy(id = legacyExpenseCloudId(expense)),
+                    userId,
+                    ExpenseEntity.UPSERT
+                )
+            )
+        }
+    }
+
+    private fun legacyExpenseCloudId(expense: Expense): String = UUID.nameUUIDFromBytes(
+        "legacy:${expense.id}:${expense.date}".toByteArray()
+    ).toString()
 }

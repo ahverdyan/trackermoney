@@ -146,4 +146,13 @@
     <string name="expense_save_permission_help">Supabase отклонил запись. Проверьте, что пользователь вошёл в аккаунт и INSERT-политика RLS разрешает добавление расходов.</string>
     <string name="expense_save_schema_help">Схема таблицы expenses не совпадает с приложением. Проверьте SQL-миграцию и имена колонок.</string>
     <string name="expense_saved_refresh_failed">Расход сохранён, но список не обновился. %1$s</string>
+    <string name="expense_saved_offline">Сохранено на этом устройстве. Отправим расход в облако при следующем подключении.</string>
+    <string name="expense_delete_queued">Удаление сохранено. Синхронизируем его при подключении к интернету.</string>
+    <string name="reset_queued_offline">Локальный список очищен. Удаление из облака ожидает подключения.</string>
+    <string name="settings_share">Поделиться приложением</string>
+    <string name="settings_share_description">Отправить ссылку или описание через другое приложение</string>
+    <string name="about_back">Назад</string>
+    <string name="about_share_text">Попробуй TrackerMoney — приложение для учёта расходов.</string>
+    <string name="offline_cached_data">Нет связи с облаком. Показаны сохранённые расходы; изменения синхронизируются при подключении.</string>
+    <string name="budget_saved_offline">Бюджет сохранён на устройстве и будет отправлен в облако при подключении.</string>
 </resources>

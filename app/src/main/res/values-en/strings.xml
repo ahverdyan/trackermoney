@@ -146,4 +146,13 @@
     <string name="expense_save_permission_help">Supabase rejected the write. Check that the user is signed in and the expenses INSERT RLS policy allows adding records.</string>
     <string name="expense_save_schema_help">The expenses table does not match the app. Check the SQL migration and column names.</string>
     <string name="expense_saved_refresh_failed">Expense saved, but the list could not refresh. %1$s</string>
+    <string name="expense_saved_offline">Saved on this device. It will sync to the cloud when you reconnect.</string>
+    <string name="expense_delete_queued">Deletion saved. It will sync when you reconnect to the internet.</string>
+    <string name="reset_queued_offline">Local expenses cleared. Cloud deletion is waiting for a connection.</string>
+    <string name="settings_share">Share the app</string>
+    <string name="settings_share_description">Send the app description using another app</string>
+    <string name="about_back">Back</string>
+    <string name="about_share_text">Try TrackerMoney, an app for tracking expenses.</string>
+    <string name="offline_cached_data">Cloud is unavailable. Showing saved expenses; changes will sync when connected.</string>
+    <string name="budget_saved_offline">Budget saved on this device and will sync when connected.</string>
 </resources>

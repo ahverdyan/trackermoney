@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="36dp"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingEnd="4dp">
+
+    <View
+        android:id="@+id/category_color_dot"
+        android:layout_width="12dp"
+        android:layout_height="12dp"
+        android:background="@drawable/bg_category_dot" />
+
+    <TextView
+        android:id="@+id/category_label"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="7dp"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:textColor="?attr/colorOnSurface"
+        android:textSize="12sp" />
+</LinearLayout>

@@ -1,6 +1,9 @@
 package com.example.trackermoney
 
 import android.os.Bundle
+import android.content.Intent
+import android.net.ConnectivityManager
+import android.net.Network
 import androidx.activity.compose.setContent
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
@@ -16,6 +19,11 @@ import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.PieChart
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.viewinterop.AndroidView
+import android.view.View
+import androidx.fragment.app.FragmentActivity
+import androidx.fragment.app.FragmentContainerView
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -33,11 +41,35 @@ import com.example.trackermoney.ui.SettingsScreen
 import com.example.trackermoney.ui.SplashScreen
 import com.example.trackermoney.ui.TrackerMoneyTheme
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.ViewModelProvider
 import com.example.trackermoney.viewmodel.TrackerViewModel
 import androidx.core.os.LocaleListCompat
 import com.example.trackermoney.R
 
 class MainActivity : AppCompatActivity() {
+    private var networkCallback: ConnectivityManager.NetworkCallback? = null
+
+    override fun onStart() {
+        super.onStart()
+        val connectivityManager = getSystemService(ConnectivityManager::class.java)
+        val callback = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) {
+                ViewModelProvider(this@MainActivity)[TrackerViewModel::class.java].syncPendingExpenses()
+            }
+        }
+        networkCallback = callback
+        runCatching { connectivityManager.registerDefaultNetworkCallback(callback) }
+    }
+
+    override fun onStop() {
+        networkCallback?.let { callback ->
+            runCatching {
+                getSystemService(ConnectivityManager::class.java).unregisterNetworkCallback(callback)
+            }
+        }
+        networkCallback = null
+        super.onStop()
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -127,11 +159,7 @@ class MainActivity : AppCompatActivity() {
                                 expenseToEdit = uiState.expenseBeingEdited
                             )
 
-                            "history" -> HistoryScreen(
-                                sortedExpenses = uiState.sortedExpenses,
-                                onEdit = trackerViewModel::editExpense,
-                                onDelete = trackerViewModel::deleteExpense
-                            )
+                            "history" -> FragmentDestination("history")
 
                             "profile" -> SettingsScreen(
                                 isDarkTheme = uiState.isDarkTheme,
@@ -145,14 +173,18 @@ class MainActivity : AppCompatActivity() {
                                 monthlyBudget = uiState.monthlyBudget,
                                 onSaveMonthlyBudget = trackerViewModel::saveMonthlyBudget,
                                 onLogout = trackerViewModel::logout,
-                                onResetProgress = trackerViewModel::resetProgress
+                                onResetProgress = trackerViewModel::resetProgress,
+                                onOpenAbout = { startActivity(Intent(this@MainActivity, AboutActivity::class.java)) },
+                                onShareApp = {
+                                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                        type = "text/plain"
+                                        putExtra(Intent.EXTRA_TEXT, getString(R.string.about_share_text))
+                                    }
+                                    startActivity(Intent.createChooser(shareIntent, getString(R.string.settings_share)))
+                                }
                             )
 
-                            "analytics" -> com.example.trackermoney.ui.AnalyticsScreen(
-                                data = uiState.analyticsData,
-                                selectedPeriod = uiState.analyticsPeriod,
-                                onPeriodChange = trackerViewModel::selectAnalyticsPeriod
-                            )
+                            "analytics" -> FragmentDestination("analytics")
                             "load_error" -> Column(
                                 modifier = Modifier
                                     .fillMaxSize()
@@ -188,6 +220,43 @@ class MainActivity : AppCompatActivity() {
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FragmentDestination(destination: String) {
+    val activity = LocalContext.current as FragmentActivity
+    val fragmentManager = activity.supportFragmentManager
+    val containerId = remember(destination) { View.generateViewId() }
+    val fragment = remember(destination) {
+        when (destination) {
+            "history" -> com.example.trackermoney.ui.HistoryFragment()
+            else -> com.example.trackermoney.ui.AnalyticsFragment()
+        }
+    }
+
+    AndroidView(
+        factory = { context -> FragmentContainerView(context).apply { id = containerId } },
+        update = { container ->
+            container.post {
+                if (container.isAttachedToWindow && fragmentManager.findFragmentById(container.id) == null) {
+                    fragmentManager.beginTransaction()
+                        .replace(container.id, fragment, destination)
+                        .commitNowAllowingStateLoss()
+                }
+            }
+        },
+        modifier = Modifier.fillMaxSize()
+    )
+
+    DisposableEffect(containerId) {
+        onDispose {
+            fragmentManager.findFragmentById(containerId)?.let { current ->
+                fragmentManager.beginTransaction()
+                    .remove(current)
+                    .commitNowAllowingStateLoss()
             }
         }
     }

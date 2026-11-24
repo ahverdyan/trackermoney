@@ -30,6 +30,9 @@ class SupabaseRepository(
 
     fun hasActiveSession(): Boolean = client.auth.currentSessionOrNull() != null
 
+    fun authenticatedUserId(): String = client.auth.currentUserOrNull()?.id
+        ?: error("An authenticated user is required to access expenses")
+
     suspend fun signOut() {
         client.auth.signOut()
     }
@@ -42,7 +45,7 @@ class SupabaseRepository(
         .sortedByDescending(Expense::date)
 
     suspend fun addExpense(expense: Expense) {
-        client.from("expenses").insert(expense.toCloudExpense())
+        client.from("expenses").upsert(expense.toCloudExpense())
     }
 
     suspend fun updateExpense(expense: Expense) {

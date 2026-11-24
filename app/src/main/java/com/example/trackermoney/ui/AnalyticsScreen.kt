@@ -17,6 +17,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.recyclerview.widget.GridLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.example.trackermoney.domain.AnalyticsPeriod
 import com.example.trackermoney.domain.ExpenseChartData
 import com.example.trackermoney.R
@@ -32,7 +35,7 @@ fun AnalyticsScreen(
     val buckets = data.buckets
     val amounts = data.amounts
     val currentLocale = LocalConfiguration.current.locales[0]
-    val chartColors = categories.mapIndexed { index, category ->
+    val chartColorResources = categories.mapIndexed { index, category ->
         val fallbackColors = listOf(
             R.color.category_extra_teal,
             R.color.category_extra_orange,
@@ -40,14 +43,13 @@ fun AnalyticsScreen(
             R.color.category_extra_pink,
             R.color.category_extra_indigo
         )
-        colorResource(
-            if (categoryNameResource(category) == R.string.category_other_legacy) {
-                fallbackColors[index % fallbackColors.size]
-            } else {
-                categoryColorResource(category)
-            }
-        )
+        if (categoryNameResource(category) == R.string.category_other_legacy) {
+            fallbackColors[index % fallbackColors.size]
+        } else {
+            categoryColorResource(category)
+        }
     }
+    val chartColors = chartColorResources.map { colorId -> colorResource(colorId) }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -120,19 +122,28 @@ fun AnalyticsScreen(
             }
             if (categories.isNotEmpty()) {
                 Text(stringResource(R.string.categories_title), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-                categories.chunked(2).forEach { rowCategories ->
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        rowCategories.forEach { category ->
-                            val index = categories.indexOf(category)
-                            Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-                                Box(Modifier.size(12.dp).background(chartColors[index], CircleShape))
-                                Spacer(Modifier.width(6.dp))
-                                Text(localizedCategoryName(category), fontSize = 12.sp, maxLines = 1)
-                            }
-                        }
-                        if (rowCategories.size == 1) Spacer(Modifier.weight(1f))
-                    }
+                val legendItems = categories.mapIndexed { index, category ->
+                    CategoryLegendItem(
+                        category = category,
+                        amount = amounts.sumOf { it.getOrElse(index) { 0.0 } },
+                        colorResource = chartColorResources[index]
+                    )
                 }
+                AndroidView(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height((((categories.size + 1) / 2) * 36).dp),
+                    factory = { context ->
+                        RecyclerView(context).apply {
+                            layoutManager = GridLayoutManager(context, 2)
+                            adapter = CategoryLegendAdapter().also { it.submitItems(legendItems) }
+                            isNestedScrollingEnabled = false
+                        }
+                    },
+                    update = { recycler ->
+                        (recycler.adapter as? CategoryLegendAdapter)?.submitItems(legendItems)
+                    }
+                )
             }
         }
     }

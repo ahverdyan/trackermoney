@@ -28,9 +28,10 @@ fun SettingsScreen(
     monthlyBudget: Double,
     onSaveMonthlyBudget: (Double) -> Unit,
     onLogout: () -> Unit,
-    onResetProgress: () -> Unit
+    onResetProgress: () -> Unit,
+    onOpenAbout: () -> Unit,
+    onShareApp: () -> Unit
 ) {
-    var showAbout by remember { mutableStateOf(false) }
     var showLogoutConfirmation by remember { mutableStateOf(false) }
     var showResetConfirmation by remember { mutableStateOf(false) }
     var budgetInput by remember(monthlyBudget) {
@@ -211,7 +212,7 @@ fun SettingsScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { showAbout = true }
+                        .clickable(onClick = onOpenAbout)
                         .padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -250,6 +251,26 @@ fun SettingsScreen(
                     Text(
                         text = "1.0",
                         color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            HorizontalDivider()
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onShareApp)
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(stringResource(R.string.settings_share), fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        stringResource(R.string.settings_share_description),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 13.sp
                     )
                 }
             }
@@ -295,23 +316,6 @@ fun SettingsScreen(
                 )
             }
         }
-    }
-
-    if (showAbout) {
-        AlertDialog(
-            onDismissRequest = { showAbout = false },
-            title = { Text(stringResource(R.string.about_title)) },
-            text = {
-                Text(
-                    stringResource(R.string.about_description)
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = { showAbout = false }) {
-                    Text(stringResource(R.string.dialog_understood))
-                }
-            }
-        )
     }
 
     if (showLogoutConfirmation) {

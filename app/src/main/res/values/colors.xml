@@ -35,6 +35,7 @@
 
     <!-- TrackerMoney brand and component colors -->
     <color name="brand_accent">#6275ED</color>
+    <color name="brand_accent_soft">#1F6275ED</color>
     <color name="brand_muted">#737887</color>
     <color name="brand_button">#6860F5</color>
     <color name="brand_white">#FFFFFFFF</color>
