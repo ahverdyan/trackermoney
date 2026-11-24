@@ -5,6 +5,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.PopupMenu
 import android.widget.TextView
+import com.google.android.material.card.MaterialCardView
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
@@ -14,11 +15,17 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-/** RecyclerView adapter for the expense list; tapping a row opens its actions. */
 class ExpenseRecyclerAdapter(
     private val onEdit: (Expense) -> Unit,
-    private val onDelete: (Expense) -> Unit
+    private val onDelete: (Expense) -> Unit,
+    private var rowColors: ExpenseRowColors
 ) : ListAdapter<Expense, ExpenseRecyclerAdapter.ExpenseViewHolder>(ExpenseDiffCallback) {
+
+    fun updateColors(newColors: ExpenseRowColors) {
+        if (rowColors == newColors) return
+        rowColors = newColors
+        notifyDataSetChanged()
+    }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ExpenseViewHolder =
         ExpenseViewHolder(LayoutInflater.from(parent.context).inflate(R.layout.item_expense, parent, false))
@@ -29,14 +36,24 @@ class ExpenseRecyclerAdapter(
         fun bind(expense: Expense) {
             val context = itemView.context
             val categoryName = context.getString(categoryNameResource(expense.category))
+            (itemView as MaterialCardView).setCardBackgroundColor(rowColors.card)
             itemView.findViewById<TextView>(R.id.category_icon).text = categoryIcon(expense.category)
-            itemView.findViewById<TextView>(R.id.expense_title).text =
-                expense.note.ifBlank { categoryName }
-            itemView.findViewById<TextView>(R.id.expense_category).text = categoryName
-            itemView.findViewById<TextView>(R.id.expense_date).text =
-                SimpleDateFormat("dd.MM.yyyy, HH:mm", Locale.getDefault()).format(Date(expense.date))
-            itemView.findViewById<TextView>(R.id.expense_amount).text =
-                String.format(Locale.getDefault(), "-%,.2f ₽", expense.amount)
+            itemView.findViewById<TextView>(R.id.expense_title).apply {
+                setTextColor(rowColors.primaryText)
+                text = expense.note.ifBlank { categoryName }
+            }
+            itemView.findViewById<TextView>(R.id.expense_category).apply {
+                setTextColor(rowColors.accentText)
+                text = categoryName
+            }
+            itemView.findViewById<TextView>(R.id.expense_date).apply {
+                setTextColor(rowColors.secondaryText)
+                text = SimpleDateFormat("dd.MM.yyyy, HH:mm", Locale.getDefault()).format(Date(expense.date))
+            }
+            itemView.findViewById<TextView>(R.id.expense_amount).apply {
+                setTextColor(rowColors.primaryText)
+                text = String.format(Locale.getDefault(), "-%,.2f ₽", expense.amount)
+            }
 
             val showActions = View.OnClickListener { anchor ->
                 PopupMenu(context, anchor).apply {
@@ -64,3 +81,10 @@ class ExpenseRecyclerAdapter(
         }
     }
 }
+
+data class ExpenseRowColors(
+    val card: Int,
+    val primaryText: Int,
+    val secondaryText: Int,
+    val accentText: Int
+)

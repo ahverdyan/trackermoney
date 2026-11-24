@@ -22,7 +22,6 @@ import com.example.trackermoney.data.UserPreferencesRepository
 import com.example.trackermoney.ui.TrackerMoneyTheme
 import kotlinx.coroutines.launch
 
-/** A separate destination launched with an explicit Activity intent. */
 class AboutActivity : AppCompatActivity() {
     private var isDarkTheme = false
 

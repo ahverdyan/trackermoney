@@ -12,7 +12,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import com.example.trackermoney.viewmodel.TrackerViewModel
 
-/** Hosts the existing Compose history screen inside the app's fragment navigation. */
 class HistoryFragment : Fragment() {
     override fun onCreateView(
         inflater: LayoutInflater,

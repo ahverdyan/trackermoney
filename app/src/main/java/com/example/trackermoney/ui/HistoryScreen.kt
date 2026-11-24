@@ -23,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.graphics.toArgb
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.trackermoney.model.Expense
@@ -38,6 +39,13 @@ fun HistoryScreen(
     onDelete: (Expense) -> Unit
 ) {
     val historyAccent = androidx.compose.ui.res.colorResource(R.color.brand_accent)
+    val colors = MaterialTheme.colorScheme
+    val rowColors = ExpenseRowColors(
+        card = colors.surface.toArgb(),
+        primaryText = colors.onSurface.toArgb(),
+        secondaryText = colors.onSurfaceVariant.toArgb(),
+        accentText = historyAccent.toArgb()
+    )
     val currentLocale = LocalConfiguration.current.locales[0]
     Column(
         modifier = Modifier
@@ -103,13 +111,18 @@ fun HistoryScreen(
                 factory = { context ->
                     RecyclerView(context).apply {
                         layoutManager = LinearLayoutManager(context)
-                        adapter = ExpenseRecyclerAdapter(onEdit, onDelete).also { it.submitList(sortedExpenses) }
+                        setBackgroundColor(colors.background.toArgb())
+                        adapter = ExpenseRecyclerAdapter(onEdit, onDelete, rowColors).also { it.submitList(sortedExpenses) }
                         clipToPadding = false
                         setPadding(0, 0, 0, 20)
                     }
                 },
                 update = { recycler ->
-                    (recycler.adapter as? ExpenseRecyclerAdapter)?.submitList(sortedExpenses)
+                    recycler.setBackgroundColor(colors.background.toArgb())
+                    (recycler.adapter as? ExpenseRecyclerAdapter)?.apply {
+                        updateColors(rowColors)
+                        submitList(sortedExpenses)
+                    }
                 }
             )
         }

@@ -10,7 +10,6 @@ import java.time.Instant
 import java.time.OffsetDateTime
 import java.util.UUID
 
-/** Handles cloud authentication and the user's private expense records. */
 class SupabaseRepository(
     private val client: io.github.jan.supabase.SupabaseClient = SupabaseClientProvider.client
 ) {
@@ -117,7 +116,6 @@ class SupabaseRepository(
         )
 
         private fun parseTimestamp(value: String): Long {
-            // PostgREST can serialize UTC as +00; ISO_OFFSET_DATE_TIME expects +00:00.
             val normalizedValue = value.replace(Regex("([+-]\\d{2})$")) {
                 "${it.groupValues[1]}:00"
             }

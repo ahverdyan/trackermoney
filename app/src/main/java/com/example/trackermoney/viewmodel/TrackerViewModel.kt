@@ -266,7 +266,6 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    /** Pulls cloud changes after replaying any local writes queued while offline. */
     private suspend fun syncExpensesFromCloud(): Boolean {
         val userId = runCatching { cloudRepository.authenticatedUserId() }.getOrNull() ?: return false
         return try {
@@ -299,7 +298,6 @@ class TrackerViewModel(application: Application) : AndroidViewModel(application)
             }
             true
         } catch (_: Exception) {
-            // The Room copy remains usable offline; pending operations retry next sync/launch.
             false
         }
     }

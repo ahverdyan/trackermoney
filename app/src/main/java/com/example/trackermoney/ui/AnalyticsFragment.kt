@@ -12,7 +12,6 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.trackermoney.viewmodel.TrackerViewModel
 
-/** Hosts the existing Compose analytics screen as a real Fragment destination. */
 class AnalyticsFragment : Fragment() {
     override fun onCreateView(
         inflater: LayoutInflater,

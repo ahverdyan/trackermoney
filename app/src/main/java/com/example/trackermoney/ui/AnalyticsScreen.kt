@@ -18,6 +18,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.graphics.toArgb
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.trackermoney.domain.AnalyticsPeriod
@@ -50,6 +51,8 @@ fun AnalyticsScreen(
         }
     }
     val chartColors = chartColorResources.map { colorId -> colorResource(colorId) }
+    val legendLabelColor = MaterialTheme.colorScheme.onSurface.toArgb()
+    val legendBackgroundColor = MaterialTheme.colorScheme.background.toArgb()
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -136,12 +139,17 @@ fun AnalyticsScreen(
                     factory = { context ->
                         RecyclerView(context).apply {
                             layoutManager = GridLayoutManager(context, 2)
-                            adapter = CategoryLegendAdapter().also { it.submitItems(legendItems) }
+                            setBackgroundColor(legendBackgroundColor)
+                            adapter = CategoryLegendAdapter(legendLabelColor).also { it.submitItems(legendItems) }
                             isNestedScrollingEnabled = false
                         }
                     },
                     update = { recycler ->
-                        (recycler.adapter as? CategoryLegendAdapter)?.submitItems(legendItems)
+                        recycler.setBackgroundColor(legendBackgroundColor)
+                        (recycler.adapter as? CategoryLegendAdapter)?.apply {
+                            updateLabelColor(legendLabelColor)
+                            submitItems(legendItems)
+                        }
                     }
                 )
             }

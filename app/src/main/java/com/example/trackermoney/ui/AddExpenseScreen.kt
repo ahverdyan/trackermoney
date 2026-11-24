@@ -69,13 +69,11 @@ fun AddExpenseScreen(
         .toDoubleOrNull()
 
     val colors = MaterialTheme.colorScheme
-    // Определяем активную тему по цвету фона, чтобы учитывать и ручное переключение в настройках.
     val isDarkTheme = colors.background.luminance() < 0.5f
 
     val currentLocale = LocalConfiguration.current.locales[0]
     val dateFormatter = remember(currentLocale) { SimpleDateFormat("d MMMM yyyy", currentLocale) }
 
-    // диалог календаря
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(
             initialSelectedDateMillis = selectedDateMillis
@@ -103,7 +101,6 @@ fun AddExpenseScreen(
         }
     }
 
-    // колонка с плитками
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -112,7 +109,6 @@ fun AddExpenseScreen(
             )
             .padding(horizontal = 20.dp)
     ) {
-        // заголовок
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -134,14 +130,12 @@ fun AddExpenseScreen(
             )
         }
 
-        // Прокручиваемое содержимое
         Column(
             modifier = Modifier
                 .weight(1f)
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            // сумма
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -201,7 +195,6 @@ fun AddExpenseScreen(
                 }
             }
 
-            // информация
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
                     stringResource(R.string.expense_information),
@@ -219,7 +212,6 @@ fun AddExpenseScreen(
                 )
             }
 
-            // дата
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
                     stringResource(R.string.expense_date),
@@ -230,7 +222,7 @@ fun AddExpenseScreen(
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { showDatePicker = true },   // ← открывает календарь
+                        .clickable { showDatePicker = true },
                     shape = RoundedCornerShape(18.dp),
                     border = androidx.compose.foundation.BorderStroke(
                         1.dp,
@@ -255,7 +247,6 @@ fun AddExpenseScreen(
                 }
             }
 
-            // категории
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
                     stringResource(R.string.expense_category),
@@ -332,7 +323,6 @@ fun AddExpenseScreen(
             }
         }
 
-        // кнопка сохранения
         Button(
             onClick = {
                 if (parsedAmount != null && parsedAmount > 0) {

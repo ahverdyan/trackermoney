@@ -33,8 +33,6 @@ class UserPreferencesRepository(
         return (0 until array.length()).map { index ->
             val item = array.getJSONObject(index)
             Expense(
-                // Старые локальные записи содержат числовые id; при переносе в облако
-                // репозиторий назначит им UUID, который ожидает PostgreSQL.
                 id = item.optString("id"),
                 amount = item.optDouble("amount"),
                 category = item.optString("category"),

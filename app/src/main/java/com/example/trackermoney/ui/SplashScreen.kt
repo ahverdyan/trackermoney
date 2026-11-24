@@ -22,7 +22,6 @@ import com.example.trackermoney.R
 
 @Composable
 fun SplashScreen(onFinished: () -> Unit) {
-    //анимация
     var started by remember { mutableStateOf(false) }
 
     val alpha by animateFloatAsState(
@@ -39,7 +38,6 @@ fun SplashScreen(onFinished: () -> Unit) {
     val accent = colorResource(R.color.brand_accent)
     val muted = colorResource(R.color.brand_muted)
 
-    //время показа
     LaunchedEffect(Unit) {
         started = true
         kotlinx.coroutines.delay(2000)
@@ -52,7 +50,6 @@ fun SplashScreen(onFinished: () -> Unit) {
             .background(MaterialTheme.colorScheme.background),
         contentAlignment = Alignment.Center
     ) {
-        //логотип + текст
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier

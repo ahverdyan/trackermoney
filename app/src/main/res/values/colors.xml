@@ -24,7 +24,7 @@
     <color name="dark_secondary">#CCC2DC</color>
     <color name="dark_background">#141218</color>
     <color name="dark_on_background">#E6E0E9</color>
-    <color name="dark_surface">#141218</color>
+    <color name="dark_surface">#211F26</color>
     <color name="dark_on_surface">#E6E0E9</color>
     <color name="dark_surface_variant">#49454F</color>
     <color name="dark_on_surface_variant">#CAC4D0</color>

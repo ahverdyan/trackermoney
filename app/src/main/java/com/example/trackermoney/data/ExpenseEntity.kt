@@ -4,7 +4,6 @@ import androidx.room.Entity
 import androidx.room.Index
 import com.example.trackermoney.model.Expense
 
-/** Cached expense owned by one signed-in Supabase user. */
 @Entity(
     tableName = "expenses",
     primaryKeys = ["id", "ownerUserId"],
@@ -17,7 +16,6 @@ data class ExpenseEntity(
     val category: String,
     val note: String,
     val date: Long,
-    /** null when synced; otherwise UPSERT or DELETE waits for a connection. */
     val pendingOperation: String? = null
 ) {
     fun toExpense() = Expense(id, amount, category, note, date)
